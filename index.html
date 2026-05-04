@@ -1,0 +1,1667 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>TNFD 진단 도구 — 삼일PwC ESG 컨설팅</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --orange:#EB8C00; --orange-dark:#DC6900; --orange-light:#FFF1DC; --orange-soft:#FCE7C8;
+  --rose:#D04A02;
+  --bg:#F7F7F7; --card:#FFFFFF; --ink:#2D2D2D; --muted:#8A8A8A; --border:#E5E5E5;
+  --met:#2E8B57; --partial:#EB8C00; --not:#D04A02; --none:#CBD5DC;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{font-family:-apple-system,'Segoe UI',Roboto,'Noto Sans KR',sans-serif;
+     background:var(--bg);color:var(--ink);font-size:13px;line-height:1.5}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:13px}
+
+#authScreen{position:fixed;inset:0;background:linear-gradient(135deg,#fff1dc 0%,#ffd9a8 100%);
+  display:flex;align-items:center;justify-content:center;z-index:1000}
+.auth-card{background:#fff;border-radius:12px;padding:40px;width:380px;box-shadow:0 10px 40px rgba(220,105,0,.15)}
+.auth-logo{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.auth-logo .logo-box{width:36px;height:36px;background:var(--orange);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:18px}
+.auth-logo h1{font-size:18px;margin:0}
+.auth-sub{color:var(--muted);font-size:12px;margin-bottom:24px}
+.auth-tabs{display:flex;margin-bottom:20px;border-bottom:1px solid var(--border)}
+.auth-tab{flex:1;padding:10px;text-align:center;cursor:pointer;color:var(--muted);font-weight:500;
+  border-bottom:2px solid transparent}
+.auth-tab.active{color:var(--orange);border-bottom-color:var(--orange)}
+.field-group{margin-bottom:14px}
+.field-group label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600}
+.field-group input,.field-group select{width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;background:#fff}
+.field-group input:focus,.field-group select:focus{outline:none;border-color:var(--orange)}
+.btn-primary{width:100%;padding:11px;background:var(--orange);color:#fff;border:none;border-radius:6px;font-weight:600;font-size:13px}
+.btn-primary:hover{background:var(--orange-dark)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.auth-msg{padding:8px;border-radius:4px;font-size:12px;margin-bottom:12px;display:none}
+.auth-msg.error{display:block;background:#fee;color:#a00}
+.auth-msg.success{display:block;background:#efe;color:#070}
+
+#app{display:none;height:100vh;flex-direction:column}
+header.topbar{background:#fff;border-bottom:1px solid var(--border);padding:0 20px;height:56px;
+  display:flex;align-items:center;gap:14px;flex-shrink:0}
+.brand{display:flex;align-items:center;gap:10px}
+.brand .logo-box{height:36px;display:flex;align-items:center;background:none;padding-right:8px;border-right:1px solid var(--border);margin-right:4px;}
+.brand .logo-box svg{height:36px;width:auto;}
+.brand h1{font-size:14px;margin:0;font-weight:700}
+.brand .sub{font-size:10px;color:var(--muted)}
+.spacer{flex:1}
+.btn-newdiag{background:var(--orange);color:#fff;border:none;padding:8px 14px;border-radius:6px;font-weight:600;font-size:12px}
+.btn-newdiag:hover{background:var(--orange-dark)}
+.lang-sel{padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:#fff;font-size:12px}
+.user-avatar{width:34px;height:34px;border-radius:50%;background:var(--orange);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;cursor:pointer;position:relative}
+.user-menu{position:absolute;top:42px;right:0;background:#fff;border:1px solid var(--border);
+  border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.08);min-width:140px;display:none;z-index:100}
+.user-menu.open{display:block}
+.user-menu .uname{padding:10px 12px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600}
+.user-menu button{width:100%;text-align:left;background:none;border:none;padding:10px 12px;font-size:12px}
+.user-menu button:hover{background:var(--bg)}
+
+.main-row{display:flex;flex:1;overflow:hidden}
+aside.sidebar{width:220px;background:#fff;border-right:1px solid var(--border);padding:16px 12px;overflow:auto;flex-shrink:0}
+.side-section{margin-bottom:18px}
+.side-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;padding:0 8px;font-weight:700}
+.side-item{padding:8px 10px;border-radius:5px;font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:8px;justify-content:space-between}
+.side-item:hover{background:var(--bg)}
+.side-item.active{background:var(--orange-light);color:var(--orange-dark);font-weight:600}
+.side-item .left{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
+.side-item .left span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.side-item .dot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.side-item.active .dot{background:var(--orange)}
+.side-item .badge{background:var(--orange);color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;flex-shrink:0}
+
+main.content{flex:1;overflow:auto;padding:20px}
+
+.page-title{font-size:18px;font-weight:700;margin:0 0 4px}
+.page-desc{color:var(--muted);font-size:12px;margin-bottom:20px}
+.card{background:#fff;border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:14px}
+.card h3{font-size:13px;margin:0 0 12px;font-weight:700}
+.dropzone{border:2px dashed #d4d4d4;border-radius:8px;padding:36px;text-align:center;cursor:pointer;background:#fafafa;transition:all .2s}
+.dropzone:hover,.dropzone.hover{border-color:var(--orange);background:var(--orange-light)}
+.dropzone .icon{font-size:32px;margin-bottom:6px}
+.dropzone .main{font-weight:600;font-size:13px}
+.dropzone .desc{color:var(--muted);font-size:11px;margin-top:4px}
+.dropzone .badges{margin-top:8px;display:flex;gap:6px;justify-content:center}
+.badge-chip{padding:2px 8px;background:#fff;border:1px solid var(--border);border-radius:10px;font-size:10px}
+.dropzone.filled{border-color:var(--orange);background:var(--orange-light)}
+.dropzone.filled .icon{color:var(--orange)}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.row4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}
+.api-card{background:linear-gradient(135deg,#fff5e6 0%,#fff 100%);border:1px solid var(--orange-soft)}
+.api-card h3{color:var(--orange-dark)}
+.api-input-row{display:flex;gap:6px}
+.api-input-row input{flex:1;padding:9px;border:1px solid var(--border);border-radius:5px;font-family:monospace}
+.api-input-row button{padding:8px 12px;border:1px solid var(--border);border-radius:5px;background:#fff;font-size:11px}
+.btn-startdiag{display:block;margin:20px auto 0;padding:12px 32px;background:var(--orange);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:14px}
+.btn-startdiag:disabled{background:#e8d4b0;cursor:not-allowed}
+
+/* 분석 진행 — 잡 카드 */
+.job-card{background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+.job-info .name{font-weight:700;font-size:14px}
+.job-info .meta{color:var(--muted);font-size:11px;margin-top:2px}
+.job-progress{margin-top:10px;height:6px;background:#f0f0f0;border-radius:3px;overflow:hidden}
+.job-progress>div{height:100%;background:linear-gradient(90deg,var(--orange),var(--orange-dark));transition:width .3s}
+.job-status{font-size:11px;color:var(--muted);margin-top:6px;font-family:monospace}
+.job-actions{display:flex;flex-direction:column;gap:6px}
+.job-actions button{padding:6px 12px;border:1px solid var(--border);background:#fff;border-radius:5px;font-size:11px;white-space:nowrap}
+.job-actions button.primary{background:var(--orange);color:#fff;border-color:var(--orange)}
+.job-actions button:hover{background:#f5f5f5}
+.job-actions button.primary:hover{background:var(--orange-dark)}
+.job-status.error{color:var(--not)}
+.job-status.done{color:var(--met)}
+
+.tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:14px}
+.tab{padding:10px 18px;cursor:pointer;color:var(--muted);font-weight:500;border-bottom:2px solid transparent;font-size:13px}
+.tab.active{color:var(--orange-dark);border-bottom-color:var(--orange);font-weight:600}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+.metric{background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px}
+.metric .label{color:var(--muted);font-size:11px;font-weight:600;margin-bottom:6px}
+.metric .value{font-size:24px;font-weight:700;margin-bottom:8px}
+.metric .bar{height:4px;background:#eee;border-radius:2px;overflow:hidden}
+.metric .bar>div{height:100%}
+.metric.total .value{color:var(--orange-dark)} .metric.total .bar>div{background:var(--orange)}
+.metric.met .value{color:var(--met)} .metric.met .bar>div{background:var(--met)}
+.metric.partial .value{color:var(--partial)} .metric.partial .bar>div{background:var(--partial)}
+.metric.not .value{color:var(--not)} .metric.not .bar>div{background:var(--not)}
+
+.three-col{display:grid;grid-template-columns:240px 1fr 280px;gap:10px;height:calc(100vh - 240px);min-height:500px}
+.three-col.pdf-max{grid-template-columns:0 1fr 0}
+.three-col.pdf-max > .col-card:first-child,
+.three-col.pdf-max > .col-card:last-child{display:none}
+.col-card{background:#fff;border:1px solid var(--border);border-radius:8px;display:flex;flex-direction:column;overflow:hidden}
+.col-head{padding:10px 14px;border-bottom:1px solid var(--border)}
+.col-head h4{margin:0;font-size:13px;font-weight:700}
+.col-head .desc{color:var(--muted);font-size:10.5px;margin-top:2px}
+.col-body{flex:1;overflow:auto}
+
+.filter-chips{padding:8px 14px;display:flex;gap:6px;border-bottom:1px solid var(--border)}
+.chip{padding:4px 10px;border-radius:12px;background:var(--bg);font-size:11px;cursor:pointer;border:1px solid transparent}
+.chip.active{background:var(--ink);color:#fff}
+.chip[data-filter=met].active{background:var(--met)}
+.chip[data-filter=partial].active{background:var(--partial)}
+.chip[data-filter=not].active{background:var(--not)}
+
+.area-block{border-bottom:1px solid var(--border)}
+.area-h{padding:8px 14px;background:#fafafa;cursor:pointer;display:flex;justify-content:space-between;font-weight:600;font-size:12px}
+.area-h .stats{font-size:10px;color:var(--muted)}
+.area-b{display:none}
+.area-block.open .area-b{display:block}
+.item-h{padding:5px 14px;font-size:11px;color:var(--muted);background:#fcfcfc}
+.guid-row{padding:6px 14px 6px 22px;cursor:pointer;display:flex;gap:6px;align-items:flex-start;font-size:11.5px;border-left:3px solid transparent}
+.guid-row:hover{background:#fafafa}
+.guid-row.sel{background:var(--orange-light);border-left-color:var(--orange)}
+.guid-row .gdot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.gdot.met{background:var(--met)}.gdot.partial{background:var(--partial)}.gdot.not{background:var(--not)}.gdot.none{background:var(--none)}
+
+/* PDF 스크롤 뷰어 */
+.pdf-toolbar{padding:8px 12px;background:#fafafa;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;font-size:11px}
+.pdf-toolbar button{padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:#fff;font-size:11px}
+.pdf-toolbar button.active{background:var(--orange);color:#fff;border-color:var(--orange)}
+.pdf-scroll{flex:1;overflow:auto;padding:10px;background:#525659}
+.pdf-page-wrap{position:relative;margin:0 auto 10px;box-shadow:0 2px 12px rgba(0,0,0,.3);background:#fff}
+.pdf-page-wrap canvas{display:block}
+.pdf-page-wrap .textLayer{position:absolute;left:0;top:0;right:0;bottom:0;overflow:hidden;line-height:1;color:transparent;z-index:1}
+.pdf-page-wrap .textLayer *{color:transparent !important}
+.pdf-page-wrap .textLayer span{position:absolute;white-space:pre;cursor:text;transform-origin:0% 0%}
+/* PDF 위에 직접 그리는 하이라이트 박스 (textLayer 우회) */
+.pdf-highlight{position:absolute;background:rgba(255,235,59,.32);
+  pointer-events:none;z-index:3;border-radius:2px;animation:pulse 1s ease-in-out 1}
+@keyframes pulse{0%{background:rgba(255,235,59,.55)}100%{background:rgba(255,235,59,.32)}}
+.pdf-marker{position:absolute;left:8px;right:8px;top:8px;padding:6px 10px;background:#fff8e1;border:2px solid #ff9800;
+  border-radius:6px;color:#d04a02;font-size:11px;font-weight:600;z-index:4;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.pdf-page-num{position:absolute;top:6px;right:8px;background:rgba(0,0,0,.6);color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;z-index:5}
+
+.excerpt-bar{padding:10px 14px;background:#fff8e8;border-top:1px solid var(--border);font-size:11.5px}
+.excerpt-bar .label{font-weight:700;color:var(--orange-dark);margin-bottom:3px;font-size:10px;text-transform:uppercase}
+.excerpt-bar .text{font-style:italic}
+.excerpt-bar .text.empty{color:var(--muted);font-style:normal}
+
+.detail-empty{padding:30px 20px;text-align:center;color:var(--muted);font-size:12px}
+.detail-content{padding:14px}
+.detail-content h3{font-size:14px;margin:0 0 4px}
+.detail-content .breadcrumb{color:var(--muted);font-size:10.5px;margin-bottom:10px}
+.detail-content .name{font-weight:600;font-size:13px;margin-bottom:8px}
+.status-badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;margin-bottom:12px}
+.status-badge.met{background:#e3f4eb;color:var(--met)}
+.status-badge.partial{background:#fff1dc;color:var(--orange-dark)}
+.status-badge.not{background:#fce0d2;color:var(--not)}
+.status-badge.none{background:#f0f3f5;color:var(--muted)}
+.det-field{margin-bottom:12px}
+.det-field .lbl{font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700;margin-bottom:4px}
+.det-field .val{padding:8px 10px;background:#fafafa;border-radius:5px;font-size:12px;line-height:1.5}
+.det-field .val.excerpt-style{background:#fff8e8;border-left:3px solid var(--orange);font-style:italic}
+.btn-goto{padding:5px 10px;background:var(--orange);color:#fff;border:none;border-radius:4px;font-size:11px;margin-left:6px}
+
+.bm-charts{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.chart-card{background:#fff;border:1px solid var(--border);border-radius:8px;padding:16px}
+.bar-row{display:grid;grid-template-columns:80px 1fr 80px 1fr;gap:8px;align-items:center;margin-bottom:10px;font-size:11px}
+.bar-row .label{font-weight:600}
+.bar-row .bar{height:18px;background:#f0f0f0;border-radius:4px;overflow:hidden;position:relative}
+.bar-row .bar>div{height:100%;background:var(--orange);display:flex;align-items:center;justify-content:flex-end;padding-right:6px;color:#fff;font-size:10px;font-weight:600}
+.bar-row .bar.bm>div{background:var(--rose)}
+.diff-list{max-height:400px;overflow:auto}
+.diff-row{padding:8px 10px;border-bottom:1px solid var(--border);font-size:11.5px;display:flex;justify-content:space-between;align-items:center}
+.diff-row .gid{font-family:monospace;color:var(--muted);font-size:10px;margin-right:8px}
+.diff-tag{padding:2px 6px;border-radius:8px;font-size:10px;font-weight:600}
+.diff-tag.up{background:#e3f4eb;color:var(--met)}
+.diff-tag.down{background:#fce0d2;color:var(--not)}
+
+.empty-state{padding:60px 20px;text-align:center;color:var(--muted)}
+.empty-state .icon{font-size:48px;margin-bottom:12px}
+</style>
+</head>
+<body>
+
+<div id="authScreen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="logo-box">T</div>
+      <h1>TNFD 진단 도구</h1>
+    </div>
+    <div class="auth-sub">삼일PwC ESG 컨설팅 — 자연 관련 재무공시 진단</div>
+    <div class="auth-tabs">
+      <div class="auth-tab active" data-mode="login">로그인</div>
+      <div class="auth-tab" data-mode="signup">회원가입</div>
+    </div>
+    <div class="auth-msg" id="authMsg"></div>
+    <div class="field-group"><label>아이디</label><input id="authUser" placeholder="예: jisung.park" /></div>
+    <div class="field-group"><label>비밀번호</label><input id="authPass" type="password" placeholder="6자 이상" /></div>
+    <div class="field-group" id="authPass2Wrap" style="display:none"><label>비밀번호 확인</label><input id="authPass2" type="password" /></div>
+    <button class="btn-primary" id="authBtn">로그인</button>
+    <div style="text-align:center;color:var(--muted);font-size:10px;margin-top:14px">⚠️ 데모 버전 — 비밀번호 분실 시 복구 불가</div>
+  </div>
+</div>
+
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo-box"><svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M66.7 47.3001C64.2 47.7001 63 49.5001 63 52.7001C63 55.9001 64.7 58.1001 67.2 58.1001C69.7 58.1001 69.5 57.7001 71.8 56.6001V59.2001C69.1 60.5001 67.5 60.8001 65.2 60.8001C62.9 60.8001 61.1 60.2001 59.8 58.8001C58.4 57.4001 57.7 55.5001 57.7 53.5001C57.7 48.9001 61.1 45.8001 66.1 45.8001C71.1 45.8001 71.7 47.3001 71.7 49.5001C71.7 51.7001 70.6 51.9001 69.1 51.9001C67.6 51.9001 67.6 51.7001 66.8 51.2001V47.3001H66.7ZM54.6 53.4001C56.8 50.6001 57.6 49.5001 57.6 48.1001C57.6 46.7001 56.5 45.6001 55.1 45.6001C53.7 45.6001 53.4 46.0001 53 46.5001V52.2001L49.4 57.0001V46.0001H46L40.3 55.5001V46.0001H38.3L33.1 47.3001V48.6001L35.9 48.9001V60.5001H39.6L45.1 51.5001V60.5001H49.1L54.7 53.4001H54.6ZM22.2 49.0001C23 49.0001 23.5 48.8001 23.9 48.8001C26.3 48.8001 27.6 50.4001 27.6 53.4001C27.6 56.4001 26 58.8001 23.1 58.8001C20.2 58.8001 22.7 58.8001 22.3 58.8001V49.1001L22.2 49.0001ZM22.2 60.4001C23.1 60.4001 24.1 60.4001 24.6 60.4001C29.5 60.4001 32.6 57.3001 32.6 52.6001C32.6 47.9001 30.3 45.7001 27.1 45.7001C23.9 45.7001 24.8 46.0001 22.2 47.6001V45.7001H20.7L15 47.4001V48.8001H17.4V65.0001L15.3 65.5001V66.8001H24.6V65.5001L22.2 65.0001V60.3001V60.4001Z" fill="black"/><path d="M64.1 41.8H48.6L51.2 37.4H66.7L64.1 41.8ZM84.9 33H69.4L66.8 37.4H82.3L84.9 33Z" fill="#FD5108"/></svg></div>
+      <div><h1>삼일회계법인</h1><div class="sub">TNFD 진단 도구 | ESG 컨설팅</div></div>
+    </div>
+    <div class="spacer"></div>
+    <select class="lang-sel" id="langSel"><option value="ko">한국어</option><option value="en">English</option></select>
+    <button class="btn-newdiag" id="newDiagBtn">+ 새 진단</button>
+    <div class="user-avatar" id="userAvatar">JK
+      <div class="user-menu" id="userMenu"><div class="uname" id="uname">user</div><button id="logoutBtn">로그아웃</button></div>
+    </div>
+  </header>
+  <div class="main-row">
+    <aside class="sidebar">
+      <div class="side-section">
+        <div class="side-title">워크스페이스</div>
+        <div class="side-item active" data-view="upload"><div class="left"><span class="dot"></span><span>보고서 업로드</span></div></div>
+        <div class="side-item" data-view="analyzing"><div class="left"><span class="dot"></span><span>분석 진행</span></div><span class="badge" id="runBadge" style="display:none">0</span></div>
+        <div class="side-item" data-view="results"><div class="left"><span class="dot"></span><span>진단 결과</span></div></div>
+      </div>
+      <div class="side-section">
+        <div class="side-title">최근 프로젝트</div>
+        <div id="recentList"><div style="font-size:11px;color:var(--muted);padding:8px 10px">아직 진단이 없습니다</div></div>
+      </div>
+    </aside>
+    <main class="content" id="content"></main>
+  </div>
+</div>
+
+<script>
+/* ============================================================ */
+const SUPABASE_URL  = 'https://lbovjyirrndesmcvjqjl.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_y12ZJNxpVd_e2utYo51aEw_mdvHHdsg';
+const FAKE_DOMAIN = 'local.tnfd';
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+/* ============================================================
+   산업 (한국 컨설팅 분류)
+============================================================ */
+const INDUSTRIES = {
+  ko:['담배·소비재','뷰티·화장품','식품·음료','소재(Materials)','화학(Chemicals)','에너지(Energy)','반도체·IT','금융(Financials)','헬스케어','유틸리티','자동차','통신','부동산','건설·산업재','운송·물류','기타'],
+  en:['Tobacco/Consumer','Beauty/Cosmetics','Food/Beverage','Materials','Chemicals','Energy','Semiconductor/IT','Financials','Healthcare','Utilities','Automotive','Telecommunication','Real Estate','Construction/Industrials','Transport/Logistics','Other']
+};
+
+/* ============================================================
+   125 TNFD 지침
+============================================================ */
+const SCHEMA = [
+  {area:'G-A',name:{ko:'이사회의 감독',en:'Board Oversight'},items:[
+    {code:'G-A.1',name:{ko:'이사회 보고 프로세스',en:'Board Reporting Process'},guidances:[
+      {sub:'1.1',name:{ko:'자연 관련 이슈 보고 체계',en:'Issue reporting system'}},
+      {sub:'1.2',name:{ko:'보고 주기',en:'Frequency'}},
+      {sub:'1.3',name:{ko:'보고 범위(직접 운영/가치사슬)',en:'Scope'}},
+    ]},
+    {code:'G-A.2',name:{ko:'이사회 검토・감독',en:'Board Review'},guidances:[
+      {sub:'2.1',name:{ko:'전략/주요 행동계획 검토',en:'Strategy review'}},
+      {sub:'2.2',name:{ko:'리스크 관리 정책 검토',en:'Risk policy review'}},
+      {sub:'2.3',name:{ko:'예산/사업계획 반영',en:'Budget integration'}},
+      {sub:'2.4',name:{ko:'성과목표 설정',en:'Target setting'}},
+      {sub:'2.5',name:{ko:'이행 상황 모니터링',en:'Monitoring'}},
+      {sub:'2.6',name:{ko:'주요 투자 결정 감독',en:'Investment oversight'}},
+    ]},
+    {code:'G-A.3',name:{ko:'목표 관리',en:'Target Mgmt'},guidances:[
+      {sub:'3.1',name:{ko:'목표 달성 모니터링 체계',en:'Target monitoring'}},
+      {sub:'3.2',name:{ko:'감독 프로세스',en:'Oversight'}},
+    ]},
+    {code:'G-A.4',name:{ko:'보고 프로세스 감독',en:'Reporting Oversight'},guidances:[
+      {sub:'4.1',name:{ko:'리스크 관리 프로세스',en:'Risk process'}},
+      {sub:'4.2',name:{ko:'내부/외부 검증 체계',en:'Assurance'}},
+    ]},
+    {code:'G-A.5',name:{ko:'보상 연계',en:'Remuneration'},guidances:[
+      {sub:'5.1',name:{ko:'보수 정책 반영 여부',en:'Compensation'}},
+      {sub:'5.2',name:{ko:'성과 지표 연계 방식',en:'KPI linkage'}},
+    ]},
+    {code:'G-A.6',name:{ko:'권장 지표',en:'Recommended Metrics'},guidances:[
+      {sub:'6.1',name:{ko:'전문성 보유 이사 비율',en:'Expert ratio'}},
+      {sub:'6.2',name:{ko:'외부 전문가 활용',en:'External expert'}},
+      {sub:'6.3',name:{ko:'이사회 논의 빈도',en:'Discussion freq'}},
+    ]},
+  ]},
+  {area:'G-B',name:{ko:'경영진 역할',en:'Mgmt Role'},items:[
+    {code:'G-B.7',name:{ko:'경영진 책임과 조직구조',en:'Mgmt Structure'},guidances:[
+      {sub:'7.1',name:{ko:'자연 관련 책임자/위원회 지정 여부',en:'Designation'}},
+      {sub:'7.2',name:{ko:'책임자/위원회의 권한과 역할',en:'Authority'}},
+      {sub:'7.3',name:{ko:'이사회/위원회 보고체계',en:'Reporting'}},
+      {sub:'7.4',name:{ko:'조직구조 내 위치와 위계',en:'Hierarchy'}},
+    ]},
+    {code:'G-B.8',name:{ko:'경영진 정보 및 모니터링',en:'Info & Monitoring'},guidances:[
+      {sub:'8.1',name:{ko:'자연 관련 정보 수집 체계',en:'Info collection'}},
+      {sub:'8.2',name:{ko:'모니터링 절차 및 주기',en:'Monitoring proc'}},
+      {sub:'8.3',name:{ko:'관리 통제 절차',en:'Control'}},
+    ]},
+    {code:'G-B.9',name:{ko:'성과 관리',en:'Perf Mgmt'},guidances:[
+      {sub:'9.1',name:{ko:'성과 지표 설정',en:'Metric setting'}},
+      {sub:'9.2',name:{ko:'성과 평가 체계',en:'Evaluation'}},
+      {sub:'9.3',name:{ko:'인센티브 연계',en:'Incentive'}},
+    ]},
+    {code:'G-B.10',name:{ko:'권장 지표',en:'Recommended'},guidances:[
+      {sub:'10.1',name:{ko:'자연 관련 정책/목표에 대한 최고 책임자 레벨',en:'Top accountability'}},
+      {sub:'10.2',name:{ko:'우선순위 지역에 대한 성과/진척도 경영진 보고 빈도',en:'Priority reporting'}},
+    ]},
+  ]},
+  {area:'G-C',name:{ko:'이해관계자 참여',en:'Stakeholder'},items:[
+    {code:'G-C.11',name:{ko:'국제 기준 준수',en:'Intl Standards'},guidances:[
+      {sub:'11.1',name:{ko:'UN 기업과 인권 이행원칙 준수',en:'UNGP'}},
+      {sub:'11.2',name:{ko:'OECD 다국적기업 가이드라인',en:'OECD MNE'}},
+      {sub:'11.3',name:{ko:'UN 원주민권리선언',en:'UNDRIP'}},
+      {sub:'11.4',name:{ko:'건강한 환경권 UN 결의안',en:'UN env resolution'}},
+    ]},
+    {code:'G-C.12',name:{ko:'인권 실사 프로세스',en:'HRDD'},guidances:[
+      {sub:'12.1',name:{ko:'전략/정책/행동강령 내 인권 실사',en:'HRDD strategy'}},
+      {sub:'12.2',name:{ko:'거버넌스 구조 내 인권 실사',en:'HRDD governance'}},
+      {sub:'12.3',name:{ko:'모범 사례 적용',en:'Best practice'}},
+    ]},
+    {code:'G-C.13',name:{ko:'모니터링 및 구제',en:'Monitoring/Remedy'},guidances:[
+      {sub:'13.1',name:{ko:'인권 영향 모니터링',en:'HR monitoring'}},
+      {sub:'13.2',name:{ko:'고충처리 메커니즘',en:'Grievance'}},
+      {sub:'13.3',name:{ko:'구제 절차 및 이행',en:'Remedy'}},
+    ]},
+    {code:'G-C.14',name:{ko:'정책 참여',en:'Policy Engagement'},guidances:[
+      {sub:'14.1',name:{ko:'자연 관련 로비/정책 참여 거버넌스',en:'Lobbying gov'}},
+      {sub:'14.2',name:{ko:'주요 정책 우선순위 및 입장',en:'Policy positions'}},
+      {sub:'14.3',name:{ko:'직접적인 정책 활동',en:'Direct activities'}},
+    ]},
+    {code:'G-C.15',name:{ko:'이해관계자 참여',en:'Stakeholder'},guidances:[
+      {sub:'15.1',name:{ko:'참여 대상 식별 및 정의',en:'ID'}},
+      {sub:'15.2',name:{ko:'참여 목적 및 범위',en:'Purpose'}},
+      {sub:'15.3',name:{ko:'참여 방식',en:'Method'}},
+      {sub:'15.4',name:{ko:'FPIC 획득 여부',en:'FPIC'}},
+      {sub:'15.5',name:{ko:'이익 공유 체계',en:'Benefit'}},
+    ]},
+    {code:'G-C.16',name:{ko:'참여 결과 관리',en:'Results'},guidances:[
+      {sub:'16.1',name:{ko:'참여 결과의 의사결정 반영',en:'Decision'}},
+      {sub:'16.2',name:{ko:'경영진/이사회 보고',en:'Reporting'}},
+    ]},
+    {code:'G-C.17',name:{ko:'성과 측정',en:'Performance'},guidances:[
+      {sub:'17.1',name:{ko:'중요 지역 내 이해관계자 참여 비율',en:'Engagement rate'}},
+      {sub:'17.2',name:{ko:'참여 프로그램 효과성 평가',en:'Effectiveness'}},
+    ]},
+  ]},
+  {area:'S-A',name:{ko:'자연관련 이슈 식별',en:'Issue ID'},items:[
+    {code:'S-A.1',name:{ko:'자연관련 의존도와 영향',en:'Dep & Impact'},guidances:[
+      {sub:'1.1',name:{ko:'사업장별 자연관련 영향 식별',en:'Site impact'}},
+      {sub:'1.2',name:{ko:'영향 경로 분석',en:'Impact pathway'}},
+      {sub:'1.3',name:{ko:'생태계 서비스 영향 평가',en:'Ecosystem service'}},
+      {sub:'1.4',name:{ko:'의존도 경로 분석',en:'Dep pathway'}},
+      {sub:'1.5',name:{ko:'의존도-영향 상호연관성',en:'Interconnection'}},
+    ]},
+    {code:'S-A.2',name:{ko:'자연관련 리스크와 기회',en:'Risk & Opp'},guidances:[
+      {sub:'2.1',name:{ko:'단기/중기/장기 리스크 식별',en:'ST/MT/LT'}},
+      {sub:'2.2',name:{ko:'물리적 리스크 평가',en:'Physical risk'}},
+      {sub:'2.3',name:{ko:'전환 리스크 평가',en:'Transition risk'}},
+      {sub:'2.4',name:{ko:'기회 요인 식별',en:'Opportunity'}},
+    ]},
+  ]},
+  {area:'S-B',name:{ko:'사업 영향 분석',en:'Business Impact'},items:[
+    {code:'S-B.3',name:{ko:'사업 영향 분석',en:'Business Impact'},guidances:[
+      {sub:'3.1',name:{ko:'비즈니스 모델 영향',en:'BM impact'}},
+      {sub:'3.2',name:{ko:'가치사슬 영향',en:'VC impact'}},
+      {sub:'3.3',name:{ko:'재무적 영향',en:'Financial'}},
+      {sub:'3.4',name:{ko:'투자 계획 영향',en:'Investment'}},
+    ]},
+    {code:'S-B.4',name:{ko:'대응 전략',en:'Response'},guidances:[
+      {sub:'4.1',name:{ko:'부정적 영향 저감 계획',en:'Mitigation'}},
+      {sub:'4.2',name:{ko:'사업 관행 개선 계획',en:'Practice'}},
+      {sub:'4.3',name:{ko:'기술/R&D 투자 계획',en:'R&D'}},
+      {sub:'4.4',name:{ko:'이해관계자 협력 방안',en:'Collaboration'}},
+    ]},
+    {code:'S-B.5',name:{ko:'전환 계획',en:'Transition'},guidances:[
+      {sub:'5.1',name:{ko:'자연관련 목표/선언 현황',en:'Targets'}},
+      {sub:'5.2',name:{ko:'GBF 연계성',en:'GBF'}},
+      {sub:'5.3',name:{ko:'이행 로드맵',en:'Roadmap'}},
+    ]},
+  ]},
+  {area:'S-C',name:{ko:'시나리오 분석',en:'Scenario'},items:[
+    {code:'S-C.6',name:{ko:'시나리오 분석',en:'Scenario'},guidances:[
+      {sub:'6.1',name:{ko:'물리적 리스크 시나리오',en:'Physical'}},
+      {sub:'6.2',name:{ko:'전환 리스크 시나리오',en:'Transition'}},
+      {sub:'6.3',name:{ko:'시나리오별 재무 영향',en:'Financial'}},
+      {sub:'6.4',name:{ko:'대응 전략의 복원력 평가',en:'Resilience'}},
+    ]},
+  ]},
+  {area:'S-D',name:{ko:'우선순위 지역',en:'Priority Locations'},items:[
+    {code:'S-D.7',name:{ko:'우선순위 지역',en:'Priority Locations'},guidances:[
+      {sub:'7.1',name:{ko:'직접 운영 지역 현황',en:'Direct ops'}},
+      {sub:'7.2',name:{ko:'가치사슬 내 중요 지역 식별',en:'VC priority'}},
+      {sub:'7.3',name:{ko:'생태적 민감 지역 현황',en:'Sensitive'}},
+      {sub:'7.4',name:{ko:'지역별 평가 방법론',en:'Methodology'}},
+      {sub:'7.5',name:{ko:'지역 정보 상세도 수준',en:'Granularity'}},
+    ]},
+  ]},
+  {area:'R-Ai',name:{ko:'직접운영 평가',en:'Direct Ops'},items:[
+    {code:'R-Ai.1',name:{ko:'식별 프로세스',en:'ID Process'},guidances:[
+      {sub:'1.1',name:{ko:'자연관련 이슈 식별 방법론',en:'Methodology'}},
+      {sub:'1.2',name:{ko:'중대성 평가 기준/가이드라인',en:'Materiality'}},
+      {sub:'1.3',name:{ko:'지역별 특성 고려 수준',en:'Location'}},
+    ]},
+    {code:'R-Ai.2',name:{ko:'평가 절차',en:'Procedure'},guidances:[
+      {sub:'2.1',name:{ko:'평가 주기',en:'Frequency'}},
+      {sub:'2.2',name:{ko:'생태적 임계점 고려',en:'Tipping points'}},
+      {sub:'2.3',name:{ko:'규제 변화 고려 방식',en:'Regulatory'}},
+    ]},
+    {code:'R-Ai.3',name:{ko:'데이터 품질',en:'Data Quality'},guidances:[
+      {sub:'3.1',name:{ko:'데이터 품질 평가',en:'Quality'}},
+      {sub:'3.2',name:{ko:'데이터 개선 계획',en:'Improvement'}},
+      {sub:'3.3',name:{ko:'정보 출처 관리',en:'Source'}},
+    ]},
+  ]},
+  {area:'R-Aii',name:{ko:'가치사슬 평가',en:'VC Assessment'},items:[
+    {code:'R-Aii.4',name:{ko:'가치사슬 범위',en:'VC Scope'},guidances:[
+      {sub:'4.1',name:{ko:'가치사슬 정의 및 범위',en:'Definition'}},
+      {sub:'4.2',name:{ko:'평가 요소 선정 기준',en:'Selection'}},
+      {sub:'4.3',name:{ko:'평가 범위 검토 절차',en:'Review'}},
+    ]},
+    {code:'R-Aii.5',name:{ko:'가치사슬 평가',en:'VC Assess'},guidances:[
+      {sub:'5.1',name:{ko:'지역별 상세도 수준',en:'Granularity'}},
+      {sub:'5.2',name:{ko:'데이터 수집 방법',en:'Collection'}},
+      {sub:'5.3',name:{ko:'데이터 품질 개선 계획',en:'Improvement'}},
+    ]},
+  ]},
+  {area:'R-B',name:{ko:'관리 프로세스',en:'Mgmt Process'},items:[
+    {code:'R-B.6',name:{ko:'관리 체계',en:'Mgmt System'},guidances:[
+      {sub:'6.1',name:{ko:'관리 도구 및 시스템',en:'Tools'}},
+      {sub:'6.2',name:{ko:'데이터 활용 방안',en:'Utilization'}},
+      {sub:'6.3',name:{ko:'모니터링 체계',en:'Monitoring'}},
+    ]},
+  ]},
+  {area:'R-C',name:{ko:'전사 리스크 통합',en:'Enterprise Risk'},items:[
+    {code:'R-C.7',name:{ko:'리스크 통합',en:'Integration'},guidances:[
+      {sub:'7.1',name:{ko:'전사 리스크 관리체계 통합',en:'ERM'}},
+      {sub:'7.2',name:{ko:'보고 및 검토 절차',en:'Reporting'}},
+      {sub:'7.3',name:{ko:'개선 피드백 체계',en:'Feedback'}},
+    ]},
+  ]},
+  {area:'M-A',name:{ko:'리스크/기회 평가 지표',en:'Risk/Opp Metrics'},items:[
+    {code:'M-A.1',name:{ko:'핵심 글로벌 지표',en:'Core Global'},guidances:[
+      {sub:'1.1',name:{ko:'조직 수준 핵심지표 관리',en:'Org-level'}},
+      {sub:'1.2',name:{ko:'섹터별 핵심지표 관리',en:'Sector'}},
+    ]},
+    {code:'M-A.2',name:{ko:'재무정보 연계',en:'Financial Linkage'},guidances:[
+      {sub:'2.1',name:{ko:'재무영향 측정 지표',en:'Financial impact'}},
+      {sub:'2.2',name:{ko:'전략/정책 모니터링 지표',en:'Strategy'}},
+    ]},
+    {code:'M-A.3',name:{ko:'지표 관리',en:'Metric Mgmt'},guidances:[
+      {sub:'3.1',name:{ko:'방법론 및 가정 관리',en:'Methodology'}},
+      {sub:'3.2',name:{ko:'미보고 지표 사유 관리',en:'Unreported'}},
+      {sub:'3.3',name:{ko:'리스크 통합성 지표',en:'Integration'}},
+    ]},
+  ]},
+  {area:'M-B',name:{ko:'의존도/영향 평가 지표',en:'Dep/Impact Metrics'},items:[
+    {code:'M-B.4',name:{ko:'의존도 측정',en:'Dependency'},guidances:[
+      {sub:'4.1',name:{ko:'핵심 의존도 지표',en:'Core dep'}},
+      {sub:'4.2',name:{ko:'섹터별 의존도 지표',en:'Sector dep'}},
+      {sub:'4.3',name:{ko:'지리적 특성 기반 지표',en:'Geographic'}},
+    ]},
+    {code:'M-B.5',name:{ko:'영향 측정',en:'Impact'},guidances:[
+      {sub:'5.1',name:{ko:'영향 동인별 지표',en:'Driver'}},
+      {sub:'5.2',name:{ko:'생태계 변화 지표',en:'Change'}},
+      {sub:'5.3',name:{ko:'생태계 서비스 지표',en:'Service'}},
+      {sub:'5.4',name:{ko:'누적 영향 지표',en:'Cumulative'}},
+    ]},
+  ]},
+  {area:'M-C',name:{ko:'목표 설정 및 모니터링',en:'Targets'},items:[
+    {code:'M-C.6',name:{ko:'목표 설정',en:'Setting'},guidances:[
+      {sub:'6.1',name:{ko:'목표 설정 방법론',en:'Methodology'}},
+      {sub:'6.2',name:{ko:'기준연도 및 목표치',en:'Baseline'}},
+      {sub:'6.3',name:{ko:'달성 기한 설정',en:'Deadline'}},
+      {sub:'6.4',name:{ko:'목표의 과학적 기반 지표',en:'Science-based'}},
+    ]},
+    {code:'M-C.7',name:{ko:'성과 관리',en:'Perf'},guidances:[
+      {sub:'7.1',name:{ko:'진행상황 모니터링',en:'Progress'}},
+      {sub:'7.2',name:{ko:'목표 조정 프로세스',en:'Adjustment'}},
+    ]},
+    {code:'M-C.8',name:{ko:'글로벌 연계',en:'Alignment'},guidances:[
+      {sub:'8.1',name:{ko:'GBF 목표 연계성',en:'GBF'}},
+      {sub:'8.2',name:{ko:'기타 국제기준 연계',en:'Other'}},
+      {sub:'8.3',name:{ko:'지속 가능성 기여 지표',en:'Sustainability'}},
+    ]},
+  ]},
+];
+const ALL = (()=>{const out=[];SCHEMA.forEach(a=>a.items.forEach(i=>i.guidances.forEach(g=>{
+  out.push({id:`${i.code}__${g.sub}`,area:a.area,areaName:a.name,item:i.code,itemName:i.name,sub:g.sub,name:g.name});
+})));return out;})();
+
+/* ============================================================
+   상태 — 잡 큐 구조
+============================================================ */
+const state = {
+  user: null, lang: 'ko', view: 'upload',
+  // 입력 폼 (새 진단 만들 때만 사용)
+  form:{ pdfFile:null, bmFile:null, pdfTexts:[], bmTexts:[],
+         pdfPdfDoc:null, bmPdfDoc:null,
+         clientName:'', industry:'', year:new Date().getFullYear(),
+         bmClientName:'', apiKey:'' },
+  // 잡 큐 — 모든 진단 잡(진행/완료) 보관
+  jobs: [],   // {id, clientName, year, industry, bmClientName, status, progress, log:[], results:{}, bmResults:{}, projectId, pdfPath, bmPath, pdfDoc, bmDoc, pdfTexts, bmTexts}
+  currentJobId: null,
+  selectedId: null, filter:'all', viewerMode:'main',
+  currentTab:'pdf', // pdf | bm | excel
+  recent: []
+};
+
+const $ = s=>document.querySelector(s);
+const $$ = s=>document.querySelectorAll(s);
+const L = (o,lang=state.lang)=>typeof o==='object'?o[lang]:o;
+function t(ko,en){return state.lang==='ko'?ko:en}
+function statusLabel(s){
+  return state.lang==='ko'
+    ? ({met:'이행',partial:'부분이행',not:'미이행',none:'미진단'})[s||'none']
+    : ({met:'Met',partial:'Partial',not:'Not Met',none:'N/A'})[s||'none'];
+}
+function normalizeId(raw){
+  if(!raw) return raw;
+  return String(raw).trim().replace(/^([A-Z]+(?:-[A-Za-z()i]+)?\.\d+)_+(\d+\.\d+)$/, '$1__$2');
+}
+function uuid(){return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16))}
+
+/* ============================================================
+   Auth
+============================================================ */
+let authMode='login';
+$$('.auth-tab').forEach(el=>el.addEventListener('click',()=>{
+  authMode=el.dataset.mode;
+  $$('.auth-tab').forEach(t=>t.classList.toggle('active',t===el));
+  $('#authPass2Wrap').style.display = authMode==='signup'?'block':'none';
+  $('#authBtn').textContent = authMode==='signup'?'회원가입':'로그인';
+  $('#authMsg').className='auth-msg';
+}));
+$('#authBtn').addEventListener('click',doAuth);
+['authUser','authPass','authPass2'].forEach(id=>$('#'+id).addEventListener('keydown',e=>{if(e.key==='Enter')doAuth()}));
+function showMsg(t,k='error'){const m=$('#authMsg');m.textContent=t;m.className='auth-msg '+k}
+async function doAuth(){
+  const u=$('#authUser').value.trim().toLowerCase(), p=$('#authPass').value;
+  if(!/^[a-z0-9._-]{3,30}$/.test(u)){showMsg('아이디는 3~30자, 영문/숫자/._- 만');return}
+  if(p.length<6){showMsg('비밀번호 최소 6자');return}
+  const email = `${u}@${FAKE_DOMAIN}`;
+  $('#authBtn').disabled=true;
+  try{
+    if(authMode==='signup'){
+      if(p!==$('#authPass2').value){showMsg('비밀번호 불일치');$('#authBtn').disabled=false;return}
+      const {error}=await sb.auth.signUp({email,password:p,options:{data:{username:u}}});
+      if(error) throw error;
+      showMsg('가입 완료, 로그인 중...','success');
+    }
+    const {data,error}=await sb.auth.signInWithPassword({email,password:p});
+    if(error) throw error;
+    state.user={id:data.user.id, username:data.user.user_metadata?.username||u};
+    enterApp();
+  }catch(e){showMsg(e.message)}
+  $('#authBtn').disabled=false;
+}
+async function checkSession(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(session?.user){
+    state.user={id:session.user.id, username:session.user.user_metadata?.username||session.user.email.split('@')[0]};
+    enterApp();
+  }
+}
+function enterApp(){
+  $('#authScreen').style.display='none';
+  $('#app').style.display='flex';
+  $('#uname').textContent=state.user.username;
+  $('#userAvatar').firstChild.nodeValue=state.user.username.slice(0,2).toUpperCase();
+  loadRecent();
+  navigate('upload');
+}
+$('#userAvatar').addEventListener('click',e=>{e.stopPropagation();$('#userMenu').classList.toggle('open')});
+document.addEventListener('click',()=>$('#userMenu').classList.remove('open'));
+$('#logoutBtn').addEventListener('click',async()=>{await sb.auth.signOut();location.reload()});
+$('#langSel').addEventListener('change',e=>{state.lang=e.target.value;document.documentElement.lang=state.lang;render()});
+$('#newDiagBtn').addEventListener('click',()=>{
+  state.form={ pdfFile:null,bmFile:null,pdfTexts:[],bmTexts:[],pdfPdfDoc:null,bmPdfDoc:null,
+               clientName:'',industry:'',year:new Date().getFullYear(),bmClientName:'',apiKey:''};
+  navigate('upload');
+});
+
+/* ============================================================
+   네비게이션
+============================================================ */
+$$('.side-item[data-view]').forEach(el=>el.addEventListener('click',()=>navigate(el.dataset.view)));
+function navigate(view){
+  state.view=view;
+  $$('.side-item[data-view]').forEach(el=>el.classList.toggle('active',el.dataset.view===view));
+  render();
+}
+function updateRunBadge(){
+  const n = state.jobs.filter(j=>j.status==='running'||j.status==='queued').length;
+  const b = $('#runBadge');
+  if(b){ b.textContent=n; b.style.display=n>0?'inline-block':'none' }
+}
+
+/* ============================================================
+   라우터
+============================================================ */
+function render(){
+  const c=$('#content');
+  if(state.view==='upload') c.innerHTML=renderUpload();
+  else if(state.view==='analyzing') c.innerHTML=renderAnalyzing();
+  else if(state.view==='results') c.innerHTML=renderResults();
+  bindAfter();
+  updateRunBadge();
+}
+
+/* ============================================================
+   업로드 화면
+============================================================ */
+function renderUpload(){
+  const f = state.form;
+  return `
+  <h2 class="page-title">${t('보고서 업로드','Upload Report')}</h2>
+  <div class="page-desc">${t('PDF 업로드 → 진단 시작 → 다른 보고서도 동시에 업로드 가능 (백그라운드 진행)','Upload → start → can upload more in parallel (runs in background)')}</div>
+  <div class="card">
+    <h3>${t('진단 대상 보고서','Target Report')}</h3>
+    <div class="dropzone ${f.pdfFile?'filled':''}" id="dzMain">
+      <div class="icon">${f.pdfFile?'✅':'📄'}</div>
+      <div class="main">${f.pdfFile?.name || t('PDF 파일을 드래그하거나 클릭','Drop PDF or click')}</div>
+      <div class="desc">${t('TNFD / ESG / 지속가능경영보고서 (PDF, 최대 50MB)','TNFD / ESG / Sustainability (PDF, max 50MB)')}</div>
+    </div>
+    <input type="file" id="fileMain" accept="application/pdf" style="display:none" />
+  </div>
+  <div class="card">
+    <h3>${t('BM 사례 보고서','Benchmark')} <span style="font-weight:400;color:var(--muted);font-size:11px">(${t('선택','optional')})</span></h3>
+    <div class="dropzone ${f.bmFile?'filled':''}" id="dzBM">
+      <div class="icon">${f.bmFile?'✅':'📎'}</div>
+      <div class="main">${f.bmFile?.name || t('BM 보고서 업로드','Upload BM PDF')}</div>
+      <div class="desc">PDF</div>
+    </div>
+    <input type="file" id="fileBM" accept="application/pdf" style="display:none" />
+  </div>
+  <div class="card">
+    <div class="row4">
+      <div class="field-group"><label>${t('진단 대상 회사','Target Company')}</label>
+        <input id="metaClient" value="${f.clientName||''}" placeholder="${t('예: KT&G','e.g. KT&G')}" /></div>
+      <div class="field-group"><label>${t('BM 회사','BM Company')}</label>
+        <input id="metaBmClient" value="${f.bmClientName||''}" placeholder="${t('예: 삼성바이오로직스','e.g. SamsungBio')}" /></div>
+      <div class="field-group"><label>${t('산업','Industry')}</label>
+        <select id="metaIndustry">
+          <option value="">${t('산업 선택','Select')}</option>
+          ${INDUSTRIES[state.lang].map((s,i)=>`<option value="${INDUSTRIES.ko[i]}" ${f.industry===INDUSTRIES.ko[i]?'selected':''}>${s}</option>`).join('')}
+        </select></div>
+      <div class="field-group"><label>${t('보고 연도','Year')}</label>
+        <input id="metaYear" type="number" value="${f.year||2024}" /></div>
+    </div>
+  </div>
+  <div class="card api-card">
+    <h3>🔑 Anthropic API ${t('키','Key')}</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
+      <a href="https://console.anthropic.com" target="_blank" style="color:var(--orange-dark)">console.anthropic.com</a>
+      · ${t('파일마다 입력 — 저장되지 않음','Per-file entry — not stored')}
+    </div>
+    <div class="api-input-row">
+      <input id="apiKey" type="password" value="${f.apiKey}" placeholder="sk-ant-api03-..." />
+      <button id="toggleKey">${t('보기','Show')}</button>
+    </div>
+  </div>
+  <button class="btn-startdiag" id="startBtn" ${f.pdfFile&&f.apiKey?'':'disabled'}>
+    ${f.pdfFile&&f.apiKey ? '🔍 '+t('진단 시작 (백그라운드)','Start (Background)') : t('보고서와 API 키 입력 필요','Enter PDF and key')}
+  </button>
+  `;
+}
+
+/* ============================================================
+   분석 진행 화면
+============================================================ */
+function renderAnalyzing(){
+  const running = state.jobs.filter(j=>j.status==='running'||j.status==='queued');
+  const recentDone = state.jobs.filter(j=>j.status==='done'||j.status==='error').slice(-3).reverse();
+  if(!state.jobs.length){
+    return `<h2 class="page-title">${t('분석 진행','Analyzing')}</h2>
+      <div class="empty-state"><div class="icon">⏳</div>${t('진행 중인 진단이 없습니다','No diagnoses running')}</div>`;
+  }
+  return `<h2 class="page-title">${t('분석 진행','Analyzing')}</h2>
+    <div class="page-desc">${t('동시에 여러 보고서를 진단할 수 있습니다','You can run multiple diagnoses in parallel')}</div>
+    ${[...running,...recentDone].map(j=>jobCardHtml(j)).join('')}`;
+}
+function jobCardHtml(j){
+  const isDone = j.status==='done', isErr = j.status==='error';
+  const lastLog = j.log[j.log.length-1] || '';
+  return `<div class="job-card" data-jid="${j.id}">
+    <div class="job-info">
+      <div class="name">${j.clientName||'(이름없음)'} ${j.year||''} ${j.bmClientName?`<span style="color:var(--muted);font-weight:400;font-size:11px">vs ${j.bmClientName}</span>`:''}</div>
+      <div class="meta">${j.industry||''} · ${j.pdfFilename||''}</div>
+      <div class="job-progress"><div style="width:${j.progress||0}%"></div></div>
+      <div class="job-status ${isErr?'error':isDone?'done':''}">${lastLog}</div>
+    </div>
+    <div class="job-actions">
+      ${isDone?`<button class="primary" data-act="open" data-jid="${j.id}">${t('결과 보기','View')}</button>`:''}
+      ${isErr?`<button data-act="retry" data-jid="${j.id}">${t('재시도','Retry')}</button>`:''}
+      ${(isDone||isErr)?`<button data-act="del" data-jid="${j.id}">${t('삭제','Delete')}</button>`:''}
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   진단 결과 화면
+============================================================ */
+function renderResults(){
+  const job = state.jobs.find(j=>j.id===state.currentJobId);
+  if(!job || !Object.keys(job.results).length){
+    return `<h2 class="page-title">${t('진단 결과','Results')}</h2>
+      <div class="empty-state"><div class="icon">📋</div>
+      ${t('완료된 진단이 없습니다. 분석 진행에서 완료된 진단을 선택하거나 좌측 최근 프로젝트에서 불러오세요.','No completed diagnoses. Select one from Analyzing or Recent Projects.')}</div>`;
+  }
+  const total=ALL.length;
+  const r=Object.values(job.results);
+  const met=r.filter(v=>v.status==='met').length;
+  const partial=r.filter(v=>v.status==='partial').length;
+  const not=r.filter(v=>v.status==='not').length;
+  const pct=v=>Math.round(v/total*100);
+  let body='';
+  if(state.currentTab==='pdf') body=renderPDFTab(job);
+  else if(state.currentTab==='bm') body=renderBMTab(job);
+  else if(state.currentTab==='excel') body=renderExcelTab(job);
+  return `
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+    <h2 class="page-title" style="margin:0">${job.clientName} ${job.year||''}</h2>
+    <span style="font-size:11px;color:var(--muted)">${job.industry||''}</span>
+  </div>
+  <div class="tabs">
+    <div class="tab ${state.currentTab==='pdf'?'active':''}" data-tab="pdf">${t('PDF 원문 진단','PDF')}</div>
+    <div class="tab ${state.currentTab==='bm'?'active':''}" data-tab="bm">${t('BM 비교 차트','BM Compare')}</div>
+    <div class="tab ${state.currentTab==='excel'?'active':''}" data-tab="excel">${t('엑셀 내보내기','Excel')}</div>
+  </div>
+  <div class="metrics">
+    <div class="metric total"><div class="label">${t('전체 충족률','Compliance')}</div><div class="value">${pct(met+partial)}%</div><div class="bar"><div style="width:${pct(met+partial)}%"></div></div></div>
+    <div class="metric met"><div class="label">${t('이행','Met')}</div><div class="value">${met}</div><div class="bar"><div style="width:${pct(met)}%"></div></div></div>
+    <div class="metric partial"><div class="label">${t('부분이행','Partial')}</div><div class="value">${partial}</div><div class="bar"><div style="width:${pct(partial)}%"></div></div></div>
+    <div class="metric not"><div class="label">${t('미이행','Not Met')}</div><div class="value">${not}</div><div class="bar"><div style="width:${pct(not)}%"></div></div></div>
+  </div>
+  ${body}`;
+}
+
+function renderPDFTab(job){
+  const havePdf = !!job.pdfDoc;
+  return `
+  <div class="three-col">
+    <div class="col-card">
+      <div class="col-head"><h4>${t('TNFD 세부 지침','TNFD Guidances')} 125</h4>
+        <div class="desc">${t('지침 클릭 → 발췌 위치로 이동 + 하이라이트','Click → jump to excerpt + highlight')}</div></div>
+      <div class="filter-chips">
+        ${['all','met','partial','not'].map(f=>`<div class="chip ${state.filter===f?'active':''}" data-filter="${f}">${
+          f==='all'?t('전체','All'):f==='met'?t('이행','Met'):f==='partial'?t('부분','Partial'):t('미이행','Not')
+        }</div>`).join('')}
+      </div>
+      <div class="col-body" id="treeBody">${renderTree(job)}</div>
+    </div>
+    <div class="col-card">
+      <div class="col-head"><h4>${t('보고서','Report')}</h4></div>
+      <div class="pdf-toolbar">
+        <span id="curPg">p.- / -</span>
+        <button id="zoomOut">−</button>
+        <span id="zoomLabel">100%</span>
+        <button id="zoomIn">+</button>
+        <button id="zoomFit">맞춤</button>
+        <button id="pdfMax" title="${t('PDF 크게/원래대로','Toggle large')}">⛶ ${t('크게보기','Maximize')}</button>
+        <span class="spacer" style="flex:1"></span>
+        <button class="${state.viewerMode==='main'?'active':''}" id="vmMain">${t('진단 대상','Target')}</button>
+        ${job.bmDoc?`<button class="${state.viewerMode==='bm'?'active':''}" id="vmBM">BM</button>`:''}
+      </div>
+      <div class="pdf-scroll" id="pdfScroll">
+        ${havePdf?'':`<div style="color:#fff;padding:40px;text-align:center">${t('PDF 파일이 없습니다 — 보고서 업로드 시 자동 저장됩니다','PDF not loaded')}</div>`}
+      </div>
+      <div class="excerpt-bar">
+        <div class="label">${t('원문 발췌','Excerpt')}</div>
+        <div class="text empty" id="excerptText">${t('지침을 선택하세요','Select a guidance')}</div>
+      </div>
+    </div>
+    <div class="col-card">
+      <div class="col-head"><h4>${t('진단 결과','Diagnosis')}</h4></div>
+      <div class="col-body" id="detailBody">${renderDetail(job)}</div>
+    </div>
+  </div>`;
+}
+
+function renderTree(job){
+  const filter=state.filter;
+  return SCHEMA.map(area=>{
+    const total=area.items.reduce((s,i)=>s+i.guidances.length,0);
+    const metN=area.items.reduce((s,i)=>s+i.guidances.filter(g=>job.results[`${i.code}__${g.sub}`]?.status==='met').length,0);
+    const items=area.items.map(item=>{
+      const guids=item.guidances.filter(g=>{
+        const r=job.results[`${item.code}__${g.sub}`];
+        if(filter==='all') return true;
+        return r?.status===filter;
+      });
+      if(!guids.length) return '';
+      return `<div class="item-h">${item.code} · ${L(item.name)}</div>
+        ${guids.map(g=>{
+          const id=`${item.code}__${g.sub}`;
+          const r=job.results[id];
+          const s=r?.status||'none';
+          return `<div class="guid-row ${state.selectedId===id?'sel':''}" data-id="${id}" data-page="${r?.page||''}">
+            <span class="gdot ${s}"></span><span>${g.sub} ${L(g.name)}</span></div>`;
+        }).join('')}`;
+    }).join('');
+    if(!items.trim()) return '';
+    return `<div class="area-block open">
+      <div class="area-h"><span>${area.area}. ${L(area.name)}</span><span class="stats">${metN}/${total}</span></div>
+      <div class="area-b">${items}</div></div>`;
+  }).join('');
+}
+
+function renderDetail(job){
+  if(!state.selectedId) return `<div class="detail-empty"><div style="font-size:24px">📋</div>${t('지침을 선택하세요','Select a guidance')}</div>`;
+  const meta=ALL.find(g=>g.id===state.selectedId);
+  const r=job.results[state.selectedId];
+  const s=r?.status||'none';
+  return `<div class="detail-content">
+    <h3>${meta.id}</h3>
+    <div class="breadcrumb">${meta.area} · ${L(meta.areaName)} › ${L(meta.itemName)}</div>
+    <div class="name">${L(meta.name)}</div>
+    <span class="status-badge ${s}">${statusLabel(s)}${r?.score!=null?' · '+r.score:''}</span>
+    ${r?`
+      ${r.page?`<div class="det-field"><div class="lbl">${t('페이지','Page')}</div><div class="val">p.${r.page}<button class="btn-goto" data-page="${r.page}" data-excerpt="${(r.excerpt||'').replace(/"/g,'&quot;')}">${t('이동','Go')}</button></div></div>`:''}
+      ${r.excerpt?`<div class="det-field"><div class="lbl">${t('원문 발췌','Excerpt')}</div><div class="val excerpt-style">"${r.excerpt}"</div></div>`:''}
+      ${r.evidence?`<div class="det-field"><div class="lbl">${t('판정 근거','Evidence')}</div><div class="val">${r.evidence}</div></div>`:''}
+      ${r.notReason?`<div class="det-field"><div class="lbl">${t('미이행 사유','Reason')}</div><div class="val">${r.notReason}</div></div>`:''}
+      ${r.rec?`<div class="det-field"><div class="lbl">${t('개선 권고','Recommendation')}</div><div class="val">${r.rec}</div></div>`:''}
+    `:`<div class="detail-empty">${t('아직 진단되지 않았습니다','Not assessed')}</div>`}
+  </div>`;
+}
+
+function renderBMTab(job){
+  if(!job.bmResults || !Object.keys(job.bmResults).length){
+    return `<div class="empty-state"><div class="icon">📊</div>${t('BM 진단 데이터가 없습니다','No BM data')}</div>`;
+  }
+  const stats=SCHEMA.map(a=>{
+    const ids=a.items.flatMap(i=>i.guidances.map(g=>`${i.code}__${g.sub}`));
+    const ok=res=>ids.filter(id=>res[id]?.status==='met'||res[id]?.status==='partial').length;
+    return {area:a.area,total:ids.length,main:ok(job.results),bm:ok(job.bmResults)};
+  });
+  const diffs=ALL.map(g=>{
+    const m=job.results[g.id]?.status||'none', b=job.bmResults[g.id]?.status||'none';
+    const sc=s=>({met:2,partial:1,not:0,none:0})[s];
+    return {g,m,b,d:sc(m)-sc(b)};
+  }).filter(x=>x.d!==0).sort((a,b)=>Math.abs(b.d)-Math.abs(a.d));
+  return `<div class="bm-charts">
+    <div class="chart-card">
+      <h3 style="margin:0 0 12px;font-size:13px">${t('영역별 충족률 비교','Compliance by Area')}</h3>
+      ${stats.map(s=>`<div class="bar-row">
+        <span class="label">${s.area}</span>
+        <div class="bar"><div style="width:${s.total?s.main/s.total*100:0}%">${s.main}/${s.total}</div></div>
+        <span class="label" style="text-align:right">${s.area}</span>
+        <div class="bar bm"><div style="width:${s.total?s.bm/s.total*100:0}%">${s.bm}/${s.total}</div></div>
+      </div>`).join('')}
+    </div>
+    <div class="chart-card">
+      <h3 style="margin:0 0 12px;font-size:13px">${t('차이 지침','Diff')} (${diffs.length})</h3>
+      <div class="diff-list">
+        ${diffs.length?diffs.map(d=>`<div class="diff-row">
+          <div><span class="gid">${d.g.id}</span> ${L(d.g.name)}</div>
+          <span class="diff-tag ${d.d>0?'up':'down'}">${d.d>0?'▲':'▼'} ${statusLabel(d.m)} vs ${statusLabel(d.b)}</span>
+        </div>`).join(''):`<div class="empty-state">${t('동일','Identical')}</div>`}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderExcelTab(job){
+  return `<div style="max-width:600px;margin:30px auto" class="card">
+    <h3>${t('엑셀 내보내기 — Gap 분석 양식','Excel Export — Gap Analysis')}</h3>
+    <p style="color:var(--muted);font-size:12px">${t('영역/항목/지침 자동 병합, 진단대상+BM 가로 비교, 이행/부분이행/미이행 색상 강조','Auto merge, target+BM compare, color-coded labels')}</p>
+    <button class="btn-primary" id="excelBtn" style="max-width:240px">⬇ ${t('Gap 분석 양식 다운로드','Download Gap Analysis')}</button>
+  </div>`;
+}
+
+/* ============================================================
+   바인딩
+============================================================ */
+function bindAfter(){
+  $$('.tab').forEach(el=>el.addEventListener('click',()=>{state.currentTab=el.dataset.tab;render()}));
+
+  if(state.view==='upload'){
+    bindDropzone('#dzMain','#fileMain','main');
+    bindDropzone('#dzBM','#fileBM','bm');
+    const f=state.form;
+    const c=$('#metaClient'),bc=$('#metaBmClient'),i=$('#metaIndustry'),y=$('#metaYear'),k=$('#apiKey'),tk=$('#toggleKey'),sb2=$('#startBtn');
+    if(c) c.addEventListener('input',e=>f.clientName=e.target.value);
+    if(bc) bc.addEventListener('input',e=>f.bmClientName=e.target.value);
+    if(i) i.addEventListener('change',e=>f.industry=e.target.value);
+    if(y) y.addEventListener('input',e=>f.year=parseInt(e.target.value)||0);
+    if(k) k.addEventListener('input',e=>{f.apiKey=e.target.value.trim();
+      const sb3=$('#startBtn');
+      if(sb3){sb3.disabled=!(f.pdfFile&&f.apiKey);sb3.textContent=f.pdfFile&&f.apiKey?'🔍 '+t('진단 시작 (백그라운드)','Start'):t('보고서와 API 키 입력 필요','Enter PDF and key')}});
+    if(tk) tk.addEventListener('click',()=>{const a=$('#apiKey');a.type=a.type==='password'?'text':'password';tk.textContent=a.type==='password'?t('보기','Show'):t('숨기기','Hide')});
+    if(sb2) sb2.addEventListener('click',startNewJob);
+  }
+
+  if(state.view==='analyzing'){
+    $$('.job-actions button').forEach(b=>b.addEventListener('click',()=>{
+      const j=state.jobs.find(x=>x.id===b.dataset.jid);
+      if(!j) return;
+      if(b.dataset.act==='open'){state.currentJobId=j.id;state.currentTab='pdf';state.selectedId=null;navigate('results')}
+      else if(b.dataset.act==='del'){deleteJob(j.id)}
+      else if(b.dataset.act==='retry'){retryJob(j.id)}
+    }));
+  }
+
+  if(state.view==='results'){
+    $$('.chip').forEach(el=>el.addEventListener('click',()=>{state.filter=el.dataset.filter;
+      const job=state.jobs.find(j=>j.id===state.currentJobId);
+      $('#treeBody').innerHTML=renderTree(job);bindGuidRows()
+    }));
+    bindGuidRows();
+    const zi=$('#zoomIn'),zo=$('#zoomOut'),zf=$('#zoomFit'),pm=$('#pdfMax');
+    if(zi) zi.addEventListener('click',()=>{pdfZoom=(pdfZoom||1.2)*1.2; renderScrollPDF()});
+    if(zo) zo.addEventListener('click',()=>{pdfZoom=(pdfZoom||1.2)/1.2; renderScrollPDF()});
+    if(zf) zf.addEventListener('click',()=>{pdfZoom=null; renderScrollPDF()});
+    if(pm) pm.addEventListener('click',()=>{
+      const tc = document.querySelector('.three-col');
+      if(tc){
+        tc.classList.toggle('pdf-max');
+        pm.textContent = tc.classList.contains('pdf-max') ? '⛶ '+t('원래대로','Restore') : '⛶ '+t('크게보기','Maximize');
+        // 너비 변경됐으니 재렌더
+        setTimeout(()=>renderScrollPDF(), 50);
+      }
+    });
+    const vm=$('#vmMain'),vb=$('#vmBM');
+    if(vm) vm.addEventListener('click',()=>{state.viewerMode='main';renderScrollPDF();$$('.pdf-toolbar button').forEach(x=>x.classList.remove('active'));vm.classList.add('active')});
+    if(vb) vb.addEventListener('click',()=>{state.viewerMode='bm';renderScrollPDF();$$('.pdf-toolbar button').forEach(x=>x.classList.remove('active'));vb.classList.add('active')});
+    $$('.btn-goto').forEach(el=>el.addEventListener('click',e=>{
+      const pg=parseInt(e.target.dataset.page); const ex=e.target.dataset.excerpt;
+      scrollToPageAndHighlight(pg,ex);
+    }));
+    const eb=$('#excelBtn');
+    if(eb) eb.addEventListener('click',exportGapExcel);
+    if($('#pdfScroll')) renderScrollPDF();
+  }
+}
+
+function bindGuidRows(){
+  $$('.guid-row').forEach(el=>el.addEventListener('click',()=>{
+    const job=state.jobs.find(j=>j.id===state.currentJobId);
+    state.selectedId=el.dataset.id;
+    $('#detailBody').innerHTML=renderDetail(job);
+    $$('.btn-goto').forEach(b=>b.addEventListener('click',e=>{
+      scrollToPageAndHighlight(parseInt(e.target.dataset.page), e.target.dataset.excerpt);
+    }));
+    $$('.guid-row').forEach(r=>r.classList.toggle('sel',r===el));
+    const r=job.results[state.selectedId];
+    const ex=$('#excerptText');
+    if(ex){
+      if(r?.excerpt){ex.textContent='"'+r.excerpt+'"';ex.classList.remove('empty')}
+      else{ex.textContent=t('발췌 없음','No excerpt');ex.classList.add('empty')}
+    }
+    const pg=parseInt(el.dataset.page);
+    if(pg) scrollToPageAndHighlight(pg, r?.excerpt||'');
+  }));
+}
+
+/* ============================================================
+   드롭존
+============================================================ */
+function bindDropzone(dzSel,inSel,kind){
+  const dz=$(dzSel),fi=$(inSel);
+  if(!dz||!fi) return;
+  dz.addEventListener('click',()=>fi.click());
+  ['dragover','dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{
+    e.preventDefault();
+    if(ev==='dragover') dz.classList.add('hover'); else dz.classList.remove('hover');
+    if(ev==='drop'&&e.dataTransfer.files[0]) loadPdfForm(e.dataTransfer.files[0],kind);
+  }));
+  fi.addEventListener('change',e=>{if(e.target.files[0]) loadPdfForm(e.target.files[0],kind)});
+}
+
+async function loadPdfForm(file,kind){
+  if(file.size>50*1024*1024){alert(t('파일 50MB 초과','File >50MB'));return}
+  const buf=await file.arrayBuffer();
+  const doc=await pdfjsLib.getDocument({data:buf.slice(0)}).promise;
+  const texts=[];
+  for(let i=1;i<=doc.numPages;i++){
+    const p=await doc.getPage(i);
+    const tc=await p.getTextContent({normalizeWhitespace:true});
+    texts.push(tc.items.map(it=>it.str).join(' '));
+  }
+  if(kind==='main'){state.form.pdfFile=file;state.form.pdfTexts=texts;state.form.pdfPdfDoc=doc}
+  else{state.form.bmFile=file;state.form.bmTexts=texts;state.form.bmPdfDoc=doc}
+  render();
+}
+
+/* ============================================================
+   잡 생성 및 실행 (백그라운드)
+============================================================ */
+async function startNewJob(){
+  const f=state.form;
+  if(!f.pdfFile||!f.apiKey){alert(t('PDF와 API 키 필요','PDF and API key required'));return}
+  // API 키 검증
+  try{ await callClaude(f.apiKey,'ping','Reply ok.',50) }
+  catch(e){ alert(t('API 키 검증 실패: ','API key invalid: ')+e.message);return }
+
+  const job = {
+    id: uuid(),
+    clientName: f.clientName||'(제목없음)',
+    bmClientName: f.bmClientName||'',
+    industry: f.industry||'',
+    year: f.year||null,
+    pdfFile: f.pdfFile,
+    bmFile: f.bmFile,
+    pdfFilename: f.pdfFile.name,
+    bmFilename: f.bmFile?.name||null,
+    pdfDoc: f.pdfPdfDoc,
+    bmDoc: f.bmPdfDoc,
+    pdfTexts: f.pdfTexts,
+    bmTexts: f.bmTexts,
+    apiKey: f.apiKey,   // 메모리에만, 잡 끝나면 비움
+    status: 'queued',
+    progress: 0,
+    log: [t('시작 대기','Queued')],
+    results: {},
+    bmResults: {},
+    projectId: null, pdfPath: null, bmPath: null
+  };
+  state.jobs.push(job);
+  // 폼 초기화
+  state.form={ pdfFile:null,bmFile:null,pdfTexts:[],bmTexts:[],pdfPdfDoc:null,bmPdfDoc:null,
+               clientName:'',industry:'',year:new Date().getFullYear(),bmClientName:'',apiKey:''};
+  navigate('analyzing');
+  runJob(job.id);
+}
+
+async function runJob(jid){
+  const job = state.jobs.find(j=>j.id===jid);
+  if(!job) return;
+  job.status='running'; job.progress=2; job.log.push(t('업로드 중...','Uploading PDF...')); render();
+  try{
+    // PDF Storage 업로드
+    const pdfPath = `${state.user.id}/${jid}.pdf`;
+    await sb.storage.from('pdfs').upload(pdfPath, job.pdfFile, {upsert:true});
+    job.pdfPath = pdfPath;
+    if(job.bmFile){
+      const bmPath = `${state.user.id}/${jid}_bm.pdf`;
+      await sb.storage.from('pdfs').upload(bmPath, job.bmFile, {upsert:true});
+      job.bmPath = bmPath;
+    }
+    job.progress=8; job.log.push(t('진단 중...','Diagnosing...')); render();
+
+    // 진단
+    await runBatchesForJob(job, 'main');
+    if(job.bmDoc){ await runBatchesForJob(job, 'bm') }
+
+    // DB 저장
+    const row = {
+      user_id: state.user.id,
+      client_name: job.clientName,
+      bm_client_name: job.bmClientName||null,
+      industry: job.industry,
+      report_year: job.year,
+      pdf_filename: job.pdfFilename,
+      bm_filename: job.bmFilename,
+      pdf_path: job.pdfPath,
+      bm_path: job.bmPath,
+      pdf_texts: job.pdfTexts.map((t,i)=>({page:i+1,text:t})),
+      bm_texts: job.bmTexts.map((t,i)=>({page:i+1,text:t})),
+      status:'done',
+      results: job.results,
+      bm_results: job.bmResults
+    };
+    const {data,error} = await sb.from('projects').insert(row).select().single();
+    if(error) throw error;
+    job.projectId = data.id;
+
+    job.status='done'; job.progress=100;
+    job.log.push('✅ '+t('완료','Done'));
+    job.apiKey=null; // 보안: 키 즉시 폐기
+    loadRecent();
+  }catch(e){
+    console.error(e);
+    job.status='error';
+    job.log.push('✗ '+(e.message||String(e)));
+  }
+  render();
+}
+
+async function runBatchesForJob(job, which){
+  const BATCHES=[
+    {label:'G-A+G-B', keys:['G-A','G-B']},
+    {label:'G-C', keys:['G-C']},
+    {label:'S-A+S-B', keys:['S-A','S-B']},
+    {label:'S-C+S-D+R', keys:['S-C','S-D','R-Ai','R-Aii','R-B','R-C']},
+    {label:'M-A+M-B', keys:['M-A','M-B']},
+    {label:'M-C', keys:['M-C']}
+  ];
+  const pageTexts = (which==='main'?job.pdfTexts:job.bmTexts);
+  const target = which==='main'?job.results:job.bmResults;
+  const baseLabel = which==='main'?t('진단 대상','Target'):'BM';
+  const startProg = which==='main'?10:55;
+  const span = 45;
+  for(let i=0;i<BATCHES.length;i++){
+    job.progress = startProg + Math.round((i/BATCHES.length)*span);
+    const batch = BATCHES[i];
+    const targets = ALL.filter(g=>batch.keys.includes(g.area));
+    job.log.push(`[${baseLabel}] ${i+1}/${BATCHES.length} ${batch.label}`);
+    render();
+    try{
+      const out = await callClaude(job.apiKey, buildSys(job.industry), buildUser(targets,null,pageTexts), 16000);
+      const parsed = parseLoose(out);
+      const batchResults = {};
+      (parsed.results||[]).forEach(r=>{
+        const id=normalizeId(r.id);
+        batchResults[id]={...r,id};
+      });
+      const hallu = verifyAndCleanResults(batchResults, pageTexts);
+      Object.assign(target, batchResults);
+      const n = Object.keys(batchResults).length;
+      job.log.push(`  → ${n} ${t('수신','received')}${hallu?` · ⚠️ ${hallu}건 환각 폐기`:''}`);
+      render();
+    }catch(e){
+      job.log.push(`  ✗ ${e.message}`);
+      render();
+    }
+  }
+  job.progress = startProg + span;
+}
+
+function deleteJob(jid){
+  const job = state.jobs.find(j=>j.id===jid);
+  if(!job) return;
+  if(!confirm(t('이 진단을 삭제하시겠습니까?','Delete this diagnosis?'))) return;
+  // DB 삭제
+  if(job.projectId){
+    sb.from('projects').delete().eq('id',job.projectId).then(()=>loadRecent());
+    if(job.pdfPath) sb.storage.from('pdfs').remove([job.pdfPath]);
+    if(job.bmPath) sb.storage.from('pdfs').remove([job.bmPath]);
+  }
+  state.jobs = state.jobs.filter(j=>j.id!==jid);
+  if(state.currentJobId===jid) state.currentJobId=null;
+  render();
+}
+
+function retryJob(jid){
+  const job=state.jobs.find(j=>j.id===jid);
+  if(!job) return;
+  const k = prompt(t('API 키를 다시 입력하세요','Re-enter API key:'));
+  if(!k) return;
+  job.apiKey=k.trim();
+  job.results={}; job.bmResults={}; job.progress=0; job.status='queued'; job.log=[t('재시도','Retrying...')];
+  runJob(job.id);
+}
+
+/* ============================================================
+   Claude API
+============================================================ */
+function buildSys(industry){
+  return `당신은 TNFD 전문 ESG 컨설턴트입니다. 보수적이고 엄격한 평가자입니다. 산업: ${industry||'일반'}
+
+## 판정 기준 (보수적·엄격)
+**핵심 원칙: 지침의 "구체적 요건"이 보고서에 직접 다뤄져 있는지를 본다. 일반적인 ESG/환경 언급은 충족 근거가 아님.**
+
+### met (이행) — 다음 모두 충족:
+- 해당 지침의 핵심 요건을 **명시적이고 구체적으로** 기술
+- 조직 정책·프로세스·시스템·체계의 존재를 분명히 공시
+- 추상적 선언이 아닌, 실행 내용·구조·결과물이 확인됨
+- score 70~95
+
+### partial (부분이행) — 다음 중 하나:
+- 관련 주제는 다루나 지침 요건의 일부만 충족
+- 계획·방침만 있고 실행 내용·체계는 명확치 않음
+- 정보가 부분적이거나 일반적 수준
+- score 30~65
+
+### not (미이행) — **다음 중 하나만 해당해도 not**:
+- 지침의 핵심 요건이 보고서에서 직접 다뤄지지 않음
+- 단순히 자연/환경/지속가능 키워드만 있고 지침 요건과 직접 관련 없음
+- 다른 주제(예: 기후변화/탄소)만 있고 자연/생물다양성 관련 없음
+- 추측·확대해석이 필요한 경우 (확실치 않으면 not)
+- score 0~20
+
+⚠️ **주의: "어떻게든 partial로 만들어야 한다"는 압력 무시. 핵심 요건이 직접 다뤄지지 않으면 not이 정답.** 보고서 분량이 많다고 모든 지침이 충족되는 것은 아님.
+
+## ⚠️ excerpt·페이지 절대 규칙 (위반 시 시스템이 자동 폐기)
+1. 본문은 "===PAGE N===" 마커로 페이지 구분됨. 마커 보고 정확한 page 번호 기록.
+2. excerpt는 해당 page 본문 **글자 그대로 복사** (paraphrase·요약·재구성 절대 금지)
+3. ctrl+F로 못 찾는 문장은 환각 — 시스템이 검증해서 폐기.
+4. **지침 요건과 직접 관련된** 문장만 인용. 일반 ESG 문장 끌어오지 말 것.
+5. 적절한 인용문이 없으면 excerpt: "" (못 찾으면 status도 not 가능성 높음).
+6. 길이 15~80자, 문장 중간에서 자르지 말 것.
+
+## id 형식
+항목코드__지침코드 (언더바 정확히 2개) 예: G-A.1__1.1
+
+## 응답 (순수 JSON만)
+{"results":[{"id":"G-A.1__1.1","status":"met|partial|not","score":0~95,"page":N,"excerpt":"본문 그대로","evidence":"근거 설명","rec":"개선 권고","notReason":"미이행 사유 (not인 경우)"}]}`;
+}
+function buildUser(targets,docText,pageTexts){
+  const lines=targets.map(g=>`[${g.id}] ${g.area} > ${L(g.itemName,'ko')} > ${g.sub} ${L(g.name,'ko')}`).join('\n');
+  // 페이지 마커 삽입 — Claude가 정확한 page 번호 인식 가능
+  let withMarkers = '';
+  let usedChars = 0;
+  const cap = 75000;
+  for(let i=0;i<pageTexts.length;i++){
+    const block = `\n===PAGE ${i+1}===\n${pageTexts[i]}`;
+    if(usedChars + block.length > cap) break;
+    withMarkers += block;
+    usedChars += block.length;
+  }
+  return `다음은 기업의 TNFD 보고서입니다. 페이지 마커 "===PAGE N===" 기준으로 정확히 인용하세요:\n${withMarkers}\n\n=========\n위 보고서를 꼼꼼히 읽고 아래 ${targets.length}개 지침을 **보수적·엄격하게** 진단하세요.\n\n중요:\n- 지침의 핵심 요건이 보고서에 직접 다뤄지지 않으면 not으로 판정\n- 단순 키워드 매칭으로 partial 부여 금지\n- 확실하지 않으면 not\n- 모든 지침을 어떻게든 충족시키려 하지 말 것 — 보고서가 다루지 않는 영역은 not이 자연스러움\n\n${lines}\n\n반드시 ${targets.length}개 전부 결과 반환. excerpt는 본문 그대로 + 지침 요건과 직접 관련된 것만.`;
+}
+
+// 환각 검증 — excerpt가 실제 page 본문에 있는지 확인
+function verifyAndCleanResults(results, pageTexts){
+  const norm = s => (s||'').replace(/\s+/g,'').replace(/[，,。.、·・！!？?「」『』\/／()()\[\]【】「」"'""'']/g,'').toLowerCase();
+  const cache = pageTexts.map(t=>norm(t));
+  let hallucinated = 0;
+  Object.values(results).forEach(r=>{
+    if(!r.excerpt || r.excerpt.length<8){ r.excerpt=''; return; }
+    const needle = norm(r.excerpt).slice(0, 30);
+    if(needle.length<8){ r.excerpt=''; return; }
+    // page ±2 범위에서 탐색 (Claude가 페이지 번호를 ±1 정도 틀리는 경우 흡수)
+    const center = (r.page||1) - 1;
+    const lo = Math.max(0, center-2);
+    const hi = Math.min(cache.length-1, center+2);
+    let foundPage = -1;
+    for(let p=lo;p<=hi;p++){
+      if(cache[p].includes(needle)){ foundPage=p+1; break; }
+    }
+    if(foundPage<0){
+      // 전체 본문에서 한 번 더 탐색
+      for(let p=0;p<cache.length;p++){
+        if(cache[p].includes(needle)){ foundPage=p+1; break; }
+      }
+    }
+    if(foundPage<0){
+      // 환각 — 발췌 폐기
+      r.excerpt = '';
+      r.evidence = (r.evidence||'') + ' [⚠️ 발췌 미검증: 본문에서 찾을 수 없어 폐기됨]';
+      hallucinated++;
+    }else if(foundPage !== r.page){
+      // 페이지만 보정
+      r.page = foundPage;
+    }
+  });
+  return hallucinated;
+}
+async function callClaude(key,sys,user,maxT=8000){
+  const res = await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body: JSON.stringify({model:'claude-sonnet-4-5',max_tokens:maxT,system:sys,messages:[{role:'user',content:user}]})
+  });
+  if(!res.ok) throw new Error('API '+res.status+': '+(await res.text()).slice(0,200));
+  const j=await res.json();
+  return j.content[0].text;
+}
+function parseLoose(t){
+  t=t.replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'');
+  const a=t.indexOf('{'),b=t.lastIndexOf('}');
+  if(a>=0&&b>a) t=t.slice(a,b+1);
+  return JSON.parse(t);
+}
+
+/* ============================================================
+   PDF 스크롤 뷰어
+============================================================ */
+let pdfRenderToken = 0;
+let pdfZoom = null; // null = 맞춤, 숫자 = 절대 스케일
+async function renderScrollPDF(){
+  const job = state.jobs.find(j=>j.id===state.currentJobId);
+  const area = $('#pdfScroll');
+  if(!job || !area) return;
+  const doc = state.viewerMode==='bm' && job.bmDoc ? job.bmDoc : job.pdfDoc;
+  area.innerHTML='';
+  if(!doc){ area.innerHTML=`<div style="color:#fff;padding:40px;text-align:center">${t('PDF 미로드 — 최근 프로젝트에서 다시 열거나 새로 업로드하세요','PDF not loaded')}</div>`; return; }
+  const myToken = ++pdfRenderToken;
+  const containerWidth = area.clientWidth - 30;
+  const dpr = window.devicePixelRatio || 1;
+  const fitScale = w => containerWidth/w;
+  const updateZoomLabel = ()=>{const z=$('#zoomLabel'); if(z) z.textContent = pdfZoom===null?'맞춤':Math.round(pdfZoom*100)+'%'};
+  updateZoomLabel();
+
+  // 1단계: 모든 페이지의 크기만 계산해서 placeholder wrap만 만들어 둠
+  const pageInfos = [];
+  for(let i=1;i<=doc.numPages;i++){
+    if(myToken!==pdfRenderToken) return;
+    const page = await doc.getPage(i);
+    const vp1 = page.getViewport({scale:1});
+    const scale = pdfZoom===null ? Math.max(1.4, fitScale(vp1.width)) : pdfZoom;
+    const vp = page.getViewport({scale});
+    const wrap = document.createElement('div');
+    wrap.className='pdf-page-wrap';
+    wrap.dataset.page = i;
+    wrap.style.width = vp.width+'px';
+    wrap.style.height = vp.height+'px';
+    const pn = document.createElement('div'); pn.className='pdf-page-num'; pn.textContent='p.'+i;
+    wrap.appendChild(pn);
+    area.appendChild(wrap);
+    pageInfos.push({page, vp, wrap, rendered:false});
+  }
+
+  // 2단계: IntersectionObserver로 화면 근처 페이지만 lazy 렌더링
+  const renderOne = async (info)=>{
+    if(info.renderPromise) return info.renderPromise;
+    if(myToken!==pdfRenderToken) return;
+    info.renderPromise = (async ()=>{
+      const {page, vp, wrap} = info;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.floor(vp.width*dpr);
+      canvas.height = Math.floor(vp.height*dpr);
+      canvas.style.width = vp.width+'px';
+      canvas.style.height = vp.height+'px';
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+      wrap.insertBefore(canvas, wrap.firstChild);
+      const tl = document.createElement('div');
+      tl.className='textLayer';
+      tl.style.width = vp.width+'px';
+      tl.style.height = vp.height+'px';
+      wrap.appendChild(tl);
+      try{
+        await page.render({canvasContext:ctx, viewport:vp}).promise;
+        const tc = await page.getTextContent({normalizeWhitespace:true});
+        const task = pdfjsLib.renderTextLayer({textContent:tc, container:tl, viewport:vp, textDivs:[]});
+        if(task && task.promise) await task.promise;
+        info.rendered = true;
+      }catch(e){/* 취소된 경우 무시 */}
+    })();
+    return info.renderPromise;
+  };
+  // 외부(스크롤·하이라이트)에서 접근 가능하게 area에 부착
+  area._pageInfos = pageInfos;
+  area._renderOne = renderOne;
+  const io = new IntersectionObserver(entries=>{
+    entries.forEach(en=>{
+      if(en.isIntersecting){
+        const i = pageInfos.findIndex(x=>x.wrap===en.target);
+        if(i>=0) renderOne(pageInfos[i]);
+      }
+    });
+  }, {root: area, rootMargin: '600px 0px'});
+  pageInfos.forEach(info=>io.observe(info.wrap));
+
+  area.addEventListener('scroll', updateCurrentPage, {passive:true});
+  updateCurrentPage();
+}
+function updateCurrentPage(){
+  const area = $('#pdfScroll');
+  if(!area) return;
+  const wraps = area.querySelectorAll('.pdf-page-wrap');
+  const top = area.scrollTop;
+  let cur=1, total=wraps.length;
+  wraps.forEach(w=>{
+    if(w.offsetTop <= top+50) cur = parseInt(w.dataset.page);
+  });
+  const el = $('#curPg');
+  if(el) el.textContent = `p.${cur} / ${total}`;
+}
+async function scrollToPageAndHighlight(pageNum, excerpt){
+  const area = $('#pdfScroll');
+  if(!area || !pageNum) return;
+  // 렌더 완료 대기 — wrap이 아직 없으면 잠시 기다림
+  let wrap = null;
+  for(let i=0;i<60;i++){
+    wrap = area.querySelector(`.pdf-page-wrap[data-page="${pageNum}"]`);
+    if(wrap) break;
+    await new Promise(r=>setTimeout(r,200));
+  }
+  if(!wrap) return;
+  // 기존 하이라이트/마커 제거
+  area.querySelectorAll('.pdf-highlight, .pdf-marker').forEach(el=>el.remove());
+  // 정확한 스크롤 — 컨테이너 내부 좌표 기준으로 계산
+  const wrapRect = wrap.getBoundingClientRect();
+  const areaRect = area.getBoundingClientRect();
+  const targetTop = area.scrollTop + (wrapRect.top - areaRect.top) - 8;
+  area.scrollTo({top: targetTop, behavior:'smooth'});
+  // 해당 페이지 렌더 강제 완료 (lazy 렌더링이 아직 안 됐을 수 있음)
+  if(area._pageInfos && area._renderOne){
+    const info = area._pageInfos.find(x=>x.wrap===wrap);
+    if(info) await area._renderOne(info);
+  }
+
+  if(!excerpt || excerpt.length<5) return;
+  // textLayer 렌더 대기 (span이 채워질 때까지)
+  let tl=null, spans=[];
+  for(let i=0;i<30;i++){
+    tl = wrap.querySelector('.textLayer');
+    spans = tl ? Array.from(tl.querySelectorAll('span')) : [];
+    if(spans.length>0) break;
+    await new Promise(r=>setTimeout(r,150));
+  }
+  if(!spans.length) return;
+
+  // 정규화 매치 — 길이 단계별 시도
+  const norm = s => s.replace(/\s+/g,'').replace(/[，,。.、·・！!？?「」『』\/／·]/g,'');
+  const allText = spans.map(s=>s.textContent).join('');
+  const allNorm = norm(allText);
+  let needle='', idx=-1;
+  for(const len of [60,40,25,15,10]){
+    needle = norm(excerpt).slice(0,len);
+    if(needle.length<8) continue;
+    idx = allNorm.indexOf(needle);
+    if(idx>=0) break;
+  }
+
+  // 매칭 실패 시: 페이지 상단에 마커 표시 (사용자가 어디 봐야 할지 안내)
+  if(idx<0){
+    const marker = document.createElement('div');
+    marker.className = 'pdf-marker';
+    marker.textContent = `🔍 ${t('이 페이지에 발췌 위치 — 본문에서 직접 찾으세요','Excerpt is on this page — locate in body')}: "${excerpt.slice(0,40)}..."`;
+    wrap.appendChild(marker);
+    setTimeout(()=>marker.remove(), 6000);
+    return;
+  }
+
+  // 매칭된 span들 찾아서 PDF 위에 직접 노란 박스 오버레이
+  let acc=0;
+  const targetEnd = idx + needle.length;
+  const matched = [];
+  for(const sp of spans){
+    const sl = norm(sp.textContent);
+    if(!sl) continue;
+    const spanStart = acc;
+    const spanEnd = acc + sl.length;
+    // span이 매칭 범위와 겹치면 포함
+    if(spanEnd > idx && spanStart < targetEnd){
+      matched.push(sp);
+    }
+    acc = spanEnd;
+    if(acc >= targetEnd) break;
+  }
+  if(!matched.length) return;
+
+  // 각 매치 span 위치를 wrap 좌표계로 변환해 박스 그리기
+  const wrapRect2 = wrap.getBoundingClientRect();
+  matched.forEach(sp=>{
+    const r = sp.getBoundingClientRect();
+    if(r.width<2||r.height<2) return;
+    const box = document.createElement('div');
+    box.className = 'pdf-highlight';
+    box.style.left = (r.left - wrapRect2.left - 2) + 'px';
+    box.style.top = (r.top - wrapRect2.top - 2) + 'px';
+    box.style.width = (r.width + 4) + 'px';
+    box.style.height = (r.height + 4) + 'px';
+    wrap.appendChild(box);
+  });
+}
+
+/* ============================================================
+   최근 프로젝트 — 로드/복원 (PDF 포함)
+============================================================ */
+async function loadRecent(){
+  const {data,error} = await sb.from('projects').select('id,client_name,bm_client_name,report_year,industry,created_at').order('created_at',{ascending:false}).limit(30);
+  if(error){console.error(error);return}
+  state.recent = data||[];
+  const el = $('#recentList');
+  if(!el) return;
+  if(!state.recent.length){
+    el.innerHTML = `<div style="font-size:11px;color:var(--muted);padding:8px 10px">${t('아직 진단이 없습니다','No diagnoses yet')}</div>`;
+    return;
+  }
+  el.innerHTML = state.recent.map(p=>`<div class="side-item" data-pid="${p.id}"><div class="left"><span class="dot"></span><span>${p.client_name} ${p.report_year||''}</span></div></div>`).join('');
+  el.querySelectorAll('.side-item').forEach(it=>it.addEventListener('click',()=>loadProject(it.dataset.pid)));
+}
+
+async function loadProject(pid){
+  // 이미 로드됐으면 그 잡으로 이동
+  const existing = state.jobs.find(j=>j.projectId===pid);
+  if(existing){
+    state.currentJobId=existing.id;state.currentTab='pdf';state.selectedId=null;navigate('results');return;
+  }
+  const {data,error} = await sb.from('projects').select('*').eq('id',pid).single();
+  if(error){alert(error.message);return}
+  // PDF Storage 다운로드
+  const job = {
+    id: uuid(),
+    projectId: data.id,
+    clientName: data.client_name,
+    bmClientName: data.bm_client_name||'',
+    industry: data.industry,
+    year: data.report_year,
+    pdfFilename: data.pdf_filename,
+    bmFilename: data.bm_filename,
+    pdfPath: data.pdf_path,
+    bmPath: data.bm_path,
+    pdfTexts: (data.pdf_texts||[]).map(o=>o.text),
+    bmTexts: (data.bm_texts||[]).map(o=>o.text),
+    pdfDoc: null, bmDoc: null,
+    status:'done', progress:100,
+    log:[t('불러오는 중...','Loading...')],
+    results: data.results||{},
+    bmResults: data.bm_results||{}
+  };
+  state.jobs.push(job);
+  state.currentJobId = job.id; state.currentTab='pdf'; state.selectedId=null;
+  navigate('results');
+  // 비동기 PDF 다운로드
+  if(data.pdf_path){
+    try{
+      const {data:blob} = await sb.storage.from('pdfs').download(data.pdf_path);
+      const buf = await blob.arrayBuffer();
+      job.pdfDoc = await pdfjsLib.getDocument({data:buf}).promise;
+      if(state.currentJobId===job.id) renderScrollPDF();
+    }catch(e){console.error('PDF 다운로드 실패',e)}
+  }
+  if(data.bm_path){
+    try{
+      const {data:blob} = await sb.storage.from('pdfs').download(data.bm_path);
+      const buf = await blob.arrayBuffer();
+      job.bmDoc = await pdfjsLib.getDocument({data:buf}).promise;
+    }catch(e){console.error('BM PDF 다운로드 실패',e)}
+  }
+}
+
+/* ============================================================
+   엑셀 — Gap 분석 양식 (병합 + 색상)
+============================================================ */
+function exportGapExcel(){
+  const job = state.jobs.find(j=>j.id===state.currentJobId);
+  if(!job) return;
+  const targetName = job.clientName||'진단대상';
+  const bmName = job.bmClientName||'BM';
+
+  // 헤더 (2행 병합)
+  const data = [];
+  // Row 0: 회사명 헤더
+  data.push(['','','', targetName, targetName, targetName, bmName, bmName, 'BM사례']);
+  // Row 1: 컬럼 라벨
+  data.push(['영역\n(Core Elements)','권고 공시항목\n(Recommended)','상세 지침\n(Guidance)','진단','공시 내용 요약','보고 페이지','진단','공시 내용 요약','BM사례']);
+
+  // 데이터 행 — 영역/항목 그룹별 병합 정보 수집
+  const merges = [
+    // 헤더 회사명 병합
+    {s:{r:0,c:3},e:{r:0,c:5}}, // 진단대상 3컬럼
+    {s:{r:0,c:6},e:{r:0,c:7}}, // BM 2컬럼
+    {s:{r:0,c:8},e:{r:1,c:8}}, // BM사례 (2행)
+    {s:{r:0,c:0},e:{r:1,c:0}}, {s:{r:0,c:1},e:{r:1,c:1}}, {s:{r:0,c:2},e:{r:1,c:2}}
+  ];
+  let row = 2;
+  SCHEMA.forEach(area=>{
+    const areaStart = row;
+    area.items.forEach(item=>{
+      const itemStart = row;
+      item.guidances.forEach(g=>{
+        const id=`${item.code}__${g.sub}`;
+        const r = job.results[id]||{};
+        const b = job.bmResults[id]||{};
+        data.push([
+          `${area.area}.\n${L(area.name,'ko')}`,
+          `${item.code.split('.')[1]}. ${L(item.name,'ko')}`,
+          `${g.sub} ${L(g.name,'ko')}`,
+          statusLabel(r.status||'none'),
+          r.excerpt||r.evidence||'',
+          r.page||'',
+          statusLabel(b.status||'none'),
+          b.excerpt||b.evidence||'',
+          ''
+        ]);
+        row++;
+      });
+      if(row-itemStart>1){
+        merges.push({s:{r:itemStart,c:1},e:{r:row-1,c:1}}); // 항목 병합
+      }
+    });
+    if(row-areaStart>1){
+      merges.push({s:{r:areaStart,c:0},e:{r:row-1,c:0}}); // 영역 병합
+    }
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!merges'] = merges;
+  // 열 너비
+  ws['!cols'] = [
+    {wch:18},{wch:22},{wch:32},{wch:10},{wch:50},{wch:10},{wch:10},{wch:50},{wch:30}
+  ];
+  // 셀 스타일 (xlsx-js-style)
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for(let R=range.s.r;R<=range.e.r;R++){
+    for(let C=range.s.c;C<=range.e.c;C++){
+      const addr = XLSX.utils.encode_cell({r:R,c:C});
+      const cell = ws[addr];
+      if(!cell) continue;
+      cell.s = {
+        alignment:{vertical:'center',horizontal:'left',wrapText:true},
+        border:{top:{style:'thin',color:{rgb:'CCCCCC'}},bottom:{style:'thin',color:{rgb:'CCCCCC'}},left:{style:'thin',color:{rgb:'CCCCCC'}},right:{style:'thin',color:{rgb:'CCCCCC'}}},
+        font:{name:'맑은 고딕',sz:10}
+      };
+      // 헤더 (R<=1)
+      if(R<=1){
+        cell.s.fill={patternType:'solid',fgColor:{rgb:'F2F2F2'}};
+        cell.s.font={name:'맑은 고딕',sz:10,bold:true};
+        cell.s.alignment.horizontal='center';
+      }
+      // 회사명 헤더 (R=0, C>=3)
+      if(R===0 && C>=3 && C<=5){
+        cell.s.fill={patternType:'solid',fgColor:{rgb:'FFF1DC'}};
+        cell.s.font={name:'맑은 고딕',sz:11,bold:true};
+        cell.s.alignment.horizontal='center';
+      }
+      if(R===0 && (C===6||C===7)){
+        cell.s.fill={patternType:'solid',fgColor:{rgb:'F4E5D9'}};
+        cell.s.font={name:'맑은 고딕',sz:11,bold:true};
+        cell.s.alignment.horizontal='center';
+      }
+      // 진단 셀 색상 (C=3, C=6)
+      if(R>=2 && (C===3||C===6)){
+        cell.s.alignment.horizontal='center';
+        const v = String(cell.v||'');
+        if(v==='이행'||v==='Met') cell.s.font={name:'맑은 고딕',sz:10,color:{rgb:'2E8B57'},bold:true};
+        else if(v==='부분이행'||v==='Partial') cell.s.font={name:'맑은 고딕',sz:10,color:{rgb:'EB8C00'},bold:true};
+        else if(v==='미이행'||v==='Not Met') cell.s.font={name:'맑은 고딕',sz:10,color:{rgb:'D04A02'},bold:true};
+      }
+      // 영역 컬럼 — 회색 배경
+      if(R>=2 && C===0){
+        cell.s.fill={patternType:'solid',fgColor:{rgb:'FAFAFA'}};
+        cell.s.font={name:'맑은 고딕',sz:10,bold:true};
+        cell.s.alignment.horizontal='center';
+      }
+    }
+  }
+  // 행 높이
+  ws['!rows']=[{hpt:30},{hpt:30}];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Gap 분석');
+  XLSX.writeFile(wb, `TNFD_Gap_${targetName}_${job.year||''}.xlsx`);
+}
+
+/* ============================================================
+   초기화
+============================================================ */
+checkSession();
+</script>
+</body>
+</html>

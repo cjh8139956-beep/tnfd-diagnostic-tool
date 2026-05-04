@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>TNFD 진단 도구</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{--bg:#f5f6f8;--card:#fff;--bd:#e3e6eb;--ink:#1f2430;--muted:#6b7280;
+        --met:#16a34a;--partial:#f59e0b;--not:#dc2626;--accent:#2563eb;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,'Noto Sans KR',sans-serif;
+       background:var(--bg);color:var(--ink);font-size:13px;line-height:1.5}
+  header{background:#0f172a;color:#fff;padding:10px 16px;display:flex;align-items:center;gap:12px}
+  header h1{font-size:15px;margin:0;flex:1}
+  header button,header select,header input{font-size:12px;padding:5px 10px;border-radius:4px;border:1px solid #334155;background:#1e293b;color:#fff}
+  header input[type=password]{width:280px}
+  main{display:grid;grid-template-columns:380px 1fr 420px;gap:10px;padding:10px;height:calc(100vh - 50px)}
+  .panel{background:var(--card);border:1px solid var(--bd);border-radius:6px;overflow:auto;padding:12px}
+  .panel h2{font-size:13px;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid var(--bd)}
+  #pdfwrap{padding:0;background:#525659;display:flex;flex-direction:column}
+  #pdftoolbar{padding:6px 10px;background:#333;color:#fff;display:flex;gap:8px;align-items:center;font-size:12px}
+  #pdfcanvasarea{flex:1;overflow:auto;padding:10px;text-align:center}
+  #pdfcanvasarea canvas{box-shadow:0 2px 8px rgba(0,0,0,.3);max-width:100%}
+  .drop{border:2px dashed #94a3b8;border-radius:8px;padding:30px;text-align:center;color:var(--muted);cursor:pointer}
+  .drop.hover{border-color:var(--accent);background:#eff6ff}
+  .scorecard{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px}
+  .sc{padding:8px;border-radius:4px;text-align:center;font-size:11px}
+  .sc b{display:block;font-size:18px;margin-bottom:2px}
+  .sc.total{background:#eef2ff;color:#3730a3}
+  .sc.met{background:#dcfce7;color:#166534}
+  .sc.partial{background:#fef3c7;color:#92400e}
+  .sc.not{background:#fee2e2;color:#991b1b}
+  .area{margin-bottom:8px;border:1px solid var(--bd);border-radius:4px}
+  .area-h{padding:6px 10px;background:#f8fafc;cursor:pointer;display:flex;justify-content:space-between;font-weight:600;font-size:12px}
+  .area-b{display:none;padding:4px 0}
+  .area.open .area-b{display:block}
+  .item{padding:4px 10px}
+  .item-name{font-size:11px;color:var(--muted);margin:2px 0}
+  .guid{padding:5px 10px 5px 22px;border-left:3px solid transparent;cursor:pointer;font-size:11.5px;display:flex;gap:6px;align-items:center}
+  .guid:hover{background:#f8fafc}
+  .guid.sel{background:#eff6ff;border-left-color:var(--accent)}
+  .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .dot.met{background:var(--met)}.dot.partial{background:var(--partial)}.dot.not{background:var(--not)}.dot.none{background:#cbd5e1}
+  .gname{flex:1}
+  .detail h3{font-size:13px;margin:0 0 4px}
+  .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;margin-bottom:8px}
+  .badge.met{background:#dcfce7;color:#166534}.badge.partial{background:#fef3c7;color:#92400e}.badge.not{background:#fee2e2;color:#991b1b}.badge.none{background:#e2e8f0;color:#475569}
+  .field{margin-bottom:10px;padding:8px;background:#f8fafc;border-radius:4px;font-size:12px}
+  .field b{display:block;color:var(--muted);font-size:11px;margin-bottom:3px;font-weight:600;text-transform:uppercase}
+  .excerpt{background:#fef9c3;padding:6px;border-radius:3px;border-left:3px solid #eab308;font-style:italic}
+  button.primary{background:var(--accent);border-color:var(--accent);cursor:pointer}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .progress{height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;margin:8px 0}
+  .progress>div{height:100%;background:var(--accent);transition:width .3s}
+  .log{font-family:monospace;font-size:10px;color:var(--muted);max-height:80px;overflow:auto;background:#f8fafc;padding:4px;border-radius:3px}
+  .pdfhl{position:absolute;background:rgba(234,179,8,.35);pointer-events:none;border:1px solid #ca8a04}
+</style>
+</head>
+<body>
+<header>
+  <h1 data-ko="🌿 TNFD 보고서 진단 도구" data-en="🌿 TNFD Report Diagnostic Tool">🌿 TNFD 보고서 진단 도구</h1>
+  <span data-ko="API 키:" data-en="API Key:">API 키:</span>
+  <input id="apikey" type="password" placeholder="sk-ant-..." />
+  <span data-ko="산업:" data-en="Industry:">산업:</span>
+  <input id="industry" placeholder="예: 식품" style="width:120px" />
+  <select id="lang"><option value="ko">한국어</option><option value="en">English</option></select>
+  <button id="exportBtn" disabled data-ko="엑셀 내보내기" data-en="Export Excel">엑셀 내보내기</button>
+</header>
+
+<main>
+  <div class="panel" id="leftPanel">
+    <h2 data-ko="진단 지침 (125개)" data-en="Guidance (125 items)">진단 지침 (125개)</h2>
+    <div class="scorecard">
+      <div class="sc total"><b id="scTotal">0</b><span data-ko="전체" data-en="Total">전체</span></div>
+      <div class="sc met"><b id="scMet">0</b><span data-ko="충족" data-en="Met">충족</span></div>
+      <div class="sc partial"><b id="scPartial">0</b><span data-ko="부분" data-en="Partial">부분</span></div>
+      <div class="sc not"><b id="scNot">0</b><span data-ko="미충족" data-en="Not Met">미충족</span></div>
+    </div>
+    <div id="tree"></div>
+  </div>
+
+  <div class="panel" id="pdfwrap">
+    <div id="pdftoolbar">
+      <button id="prevPg">◀</button>
+      <span><span id="pgNum">0</span> / <span id="pgTotal">0</span></span>
+      <button id="nextPg">▶</button>
+      <span style="margin-left:auto" id="pdfStatus" data-ko="PDF를 업로드하세요" data-en="Upload a PDF">PDF를 업로드하세요</span>
+    </div>
+    <div id="pdfcanvasarea">
+      <div style="padding:60px 20px">
+        <div id="dropzone" class="drop" style="background:#fff;color:#1f2430">
+          <div style="font-size:36px;margin-bottom:8px">📄</div>
+          <div data-ko="PDF 파일을 드롭하거나 클릭하여 업로드" data-en="Drop PDF here or click to upload">PDF 파일을 드롭하거나 클릭하여 업로드</div>
+          <input id="fileinput" type="file" accept="application/pdf" style="display:none" />
+        </div>
+        <div style="text-align:center;margin-top:20px">
+          <button class="primary" id="diagBtn" disabled data-ko="🔍 진단 시작" data-en="🔍 Start Diagnosis">🔍 진단 시작</button>
+        </div>
+        <div class="progress" style="display:none" id="progressBar"><div style="width:0%"></div></div>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2 data-ko="진단 상세" data-en="Diagnosis Detail">진단 상세</h2>
+    <div id="detail" style="color:var(--muted);font-size:12px" data-ko="좌측에서 지침을 선택하세요" data-en="Select a guidance on the left">좌측에서 지침을 선택하세요</div>
+  </div>
+</main>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+/* ============== 125개 지침 스키마 ============== */
+const SCHEMA = [
+  {area:'G-A', name:{ko:'이사회의 감독',en:'Board Oversight'}, items:[
+    {code:'G-A.1', name:{ko:'이사회 보고 프로세스',en:'Board Reporting Process'}, guidances:[
+      {sub:'1.1', name:{ko:'자연 관련 이슈 보고 체계',en:'Nature-related issue reporting system'}},
+      {sub:'1.2', name:{ko:'보고 주기',en:'Reporting frequency'}},
+      {sub:'1.3', name:{ko:'보고 범위(직접 운영/가치사슬)',en:'Reporting scope (operations/value chain)'}},
+    ]},
+    {code:'G-A.2', name:{ko:'이사회 검토・감독',en:'Board Review & Oversight'}, guidances:[
+      {sub:'2.1', name:{ko:'전략/주요 행동계획 검토',en:'Strategy/action plan review'}},
+      {sub:'2.2', name:{ko:'리스크 관리 정책 검토',en:'Risk management policy review'}},
+      {sub:'2.3', name:{ko:'예산/사업계획 반영',en:'Budget/business plan integration'}},
+      {sub:'2.4', name:{ko:'성과목표 설정',en:'Performance target setting'}},
+      {sub:'2.5', name:{ko:'이행 상황 모니터링',en:'Implementation monitoring'}},
+      {sub:'2.6', name:{ko:'주요 투자 결정 감독',en:'Major investment oversight'}},
+    ]},
+    {code:'G-A.3', name:{ko:'목표 관리',en:'Target Management'}, guidances:[
+      {sub:'3.1', name:{ko:'목표 달성 모니터링 체계',en:'Target monitoring system'}},
+      {sub:'3.2', name:{ko:'감독 프로세스',en:'Oversight process'}},
+    ]},
+    {code:'G-A.4', name:{ko:'보고 프로세스 감독',en:'Reporting Oversight'}, guidances:[
+      {sub:'4.1', name:{ko:'리스크 관리 프로세스',en:'Risk management process'}},
+      {sub:'4.2', name:{ko:'내부/외부 검증 체계',en:'Internal/external assurance'}},
+    ]},
+    {code:'G-A.5', name:{ko:'보상 연계',en:'Remuneration Linkage'}, guidances:[
+      {sub:'5.1', name:{ko:'보수 정책 반영 여부',en:'Compensation policy integration'}},
+      {sub:'5.2', name:{ko:'성과 지표 연계 방식',en:'KPI linkage method'}},
+    ]},
+    {code:'G-A.6', name:{ko:'권장 지표',en:'Recommended Metrics'}, guidances:[
+      {sub:'6.1', name:{ko:'전문성 보유 이사 비율',en:'Expert director ratio'}},
+      {sub:'6.2', name:{ko:'외부 전문가 활용',en:'External expert utilization'}},
+      {sub:'6.3', name:{ko:'이사회 논의 빈도',en:'Board discussion frequency'}},
+    ]},
+  ]},
+  {area:'G-B', name:{ko:'경영진 역할',en:'Management Role'}, items:[
+    {code:'G-B.7', name:{ko:'경영진 책임과 조직구조',en:'Mgmt Responsibility & Structure'}, guidances:[
+      {sub:'7.1', name:{ko:'자연 관련 책임자/위원회 지정 여부',en:'Designation of responsible person/committee'}},
+      {sub:'7.2', name:{ko:'책임자/위원회의 권한과 역할 정의',en:'Authority and role definition'}},
+      {sub:'7.3', name:{ko:'이사회/위원회 보고체계',en:'Board/committee reporting'}},
+      {sub:'7.4', name:{ko:'조직구조 내 위치와 위계',en:'Organizational hierarchy'}},
+    ]},
+    {code:'G-B.8', name:{ko:'경영진 정보 및 모니터링',en:'Mgmt Information & Monitoring'}, guidances:[
+      {sub:'8.1', name:{ko:'자연 관련 정보 수집 체계',en:'Information collection system'}},
+      {sub:'8.2', name:{ko:'모니터링 절차 및 주기',en:'Monitoring procedure/frequency'}},
+      {sub:'8.3', name:{ko:'관리 통제 절차',en:'Management control procedure'}},
+    ]},
+    {code:'G-B.9', name:{ko:'성과 관리',en:'Performance Mgmt'}, guidances:[
+      {sub:'9.1', name:{ko:'성과 지표 설정',en:'Performance metric setting'}},
+      {sub:'9.2', name:{ko:'성과 평가 체계',en:'Performance evaluation system'}},
+      {sub:'9.3', name:{ko:'인센티브 연계',en:'Incentive linkage'}},
+    ]},
+    {code:'G-B.10', name:{ko:'권장 지표',en:'Recommended Metrics'}, guidances:[
+      {sub:'10.1', name:{ko:'자연 관련 정책/목표에 대한 최고 책임자 레벨',en:'Top-level accountability'}},
+      {sub:'10.2', name:{ko:'우선순위 지역에 대한 성과/진척도 경영진 보고 빈도',en:'Priority location reporting frequency'}},
+    ]},
+  ]},
+  {area:'G-C', name:{ko:'이해관계자 참여',en:'Stakeholder Engagement'}, items:[
+    {code:'G-C.11', name:{ko:'국제 기준 준수',en:'International Standards Compliance'}, guidances:[
+      {sub:'11.1', name:{ko:'UN 기업과 인권 이행원칙 준수 현황',en:'UNGP compliance'}},
+      {sub:'11.2', name:{ko:'OECD 다국적기업 가이드라인 준수 현황',en:'OECD MNE Guidelines'}},
+      {sub:'11.3', name:{ko:'UN 원주민권리선언 준수 현황',en:'UNDRIP compliance'}},
+      {sub:'11.4', name:{ko:'건강한 환경권에 대한 UN총회 결의안 준수 현황',en:'UN healthy environment resolution'}},
+    ]},
+    {code:'G-C.12', name:{ko:'인권 실사 프로세스',en:'Human Rights Due Diligence'}, guidances:[
+      {sub:'12.1', name:{ko:'전략/정책/행동강령 내 인권 실사 반영',en:'HRDD in strategy/policy'}},
+      {sub:'12.2', name:{ko:'거버넌스 구조 내 인권 실사 반영',en:'HRDD in governance'}},
+      {sub:'12.3', name:{ko:'모범 사례 적용 현황',en:'Best practice application'}},
+    ]},
+    {code:'G-C.13', name:{ko:'모니터링 및 구제',en:'Monitoring & Remedy'}, guidances:[
+      {sub:'13.1', name:{ko:'인권 영향 모니터링 체계',en:'HR impact monitoring'}},
+      {sub:'13.2', name:{ko:'고충처리 메커니즘 운영',en:'Grievance mechanism'}},
+      {sub:'13.3', name:{ko:'구제 절차 및 이행 현황',en:'Remedy procedures'}},
+    ]},
+    {code:'G-C.14', name:{ko:'정책 참여',en:'Policy Engagement'}, guidances:[
+      {sub:'14.1', name:{ko:'자연 관련 로비/정책 참여 거버넌스',en:'Lobbying governance'}},
+      {sub:'14.2', name:{ko:'주요 정책 우선순위 및 입장',en:'Policy priorities/positions'}},
+      {sub:'14.3', name:{ko:'직접적인 정책 활동 현황',en:'Direct policy activities'}},
+    ]},
+    {code:'G-C.15', name:{ko:'이해관계자 참여',en:'Stakeholder Engagement'}, guidances:[
+      {sub:'15.1', name:{ko:'참여 대상 식별 및 정의',en:'Stakeholder identification'}},
+      {sub:'15.2', name:{ko:'참여 목적 및 범위',en:'Engagement purpose/scope'}},
+      {sub:'15.3', name:{ko:'참여 방식(일회성/정기/상시)',en:'Engagement method'}},
+      {sub:'15.4', name:{ko:'FPIC 획득 여부',en:'FPIC obtained'}},
+      {sub:'15.5', name:{ko:'이익 공유 체계',en:'Benefit sharing'}},
+    ]},
+    {code:'G-C.16', name:{ko:'참여 결과 관리',en:'Engagement Results Mgmt'}, guidances:[
+      {sub:'16.1', name:{ko:'참여 결과의 의사결정 반영',en:'Results in decision-making'}},
+      {sub:'16.2', name:{ko:'경영진/이사회 보고 체계',en:'Reporting to mgmt/board'}},
+    ]},
+    {code:'G-C.17', name:{ko:'성과 측정',en:'Performance Measurement'}, guidances:[
+      {sub:'17.1', name:{ko:'중요 지역 내 이해관계자 참여 비율',en:'Engagement rate in priority areas'}},
+      {sub:'17.2', name:{ko:'참여 프로그램 효과성 평가',en:'Program effectiveness'}},
+    ]},
+  ]},
+  {area:'S-A', name:{ko:'자연관련 이슈 식별',en:'Nature Issue Identification'}, items:[
+    {code:'S-A.1', name:{ko:'자연관련 의존도와 영향',en:'Dependencies & Impacts'}, guidances:[
+      {sub:'1.1', name:{ko:'사업장별 자연관련 영향 식별',en:'Site-level impact identification'}},
+      {sub:'1.2', name:{ko:'영향 경로 분석',en:'Impact pathway analysis'}},
+      {sub:'1.3', name:{ko:'생태계 서비스 영향 평가',en:'Ecosystem service impact'}},
+      {sub:'1.4', name:{ko:'의존도 경로 분석',en:'Dependency pathway analysis'}},
+      {sub:'1.5', name:{ko:'의존도-영향 간 상호연관성 분석',en:'Dependency-impact interconnection'}},
+    ]},
+    {code:'S-A.2', name:{ko:'자연관련 리스크와 기회',en:'Risks & Opportunities'}, guidances:[
+      {sub:'2.1', name:{ko:'단기/중기/장기 리스크 식별',en:'ST/MT/LT risk identification'}},
+      {sub:'2.2', name:{ko:'물리적 리스크 평가',en:'Physical risk assessment'}},
+      {sub:'2.3', name:{ko:'전환 리스크 평가',en:'Transition risk assessment'}},
+      {sub:'2.4', name:{ko:'기회 요인 식별',en:'Opportunity identification'}},
+    ]},
+  ]},
+  {area:'S-B', name:{ko:'사업 영향 분석',en:'Business Impact Analysis'}, items:[
+    {code:'S-B.3', name:{ko:'사업 영향 분석',en:'Business Impact'}, guidances:[
+      {sub:'3.1', name:{ko:'비즈니스 모델 영향',en:'Business model impact'}},
+      {sub:'3.2', name:{ko:'가치사슬 영향',en:'Value chain impact'}},
+      {sub:'3.3', name:{ko:'재무적 영향',en:'Financial impact'}},
+      {sub:'3.4', name:{ko:'투자 계획 영향',en:'Investment plan impact'}},
+    ]},
+    {code:'S-B.4', name:{ko:'대응 전략',en:'Response Strategy'}, guidances:[
+      {sub:'4.1', name:{ko:'부정적 영향 저감 계획',en:'Negative impact mitigation'}},
+      {sub:'4.2', name:{ko:'사업 관행 개선 계획',en:'Business practice improvement'}},
+      {sub:'4.3', name:{ko:'기술/R&D 투자 계획',en:'Tech/R&D investment'}},
+      {sub:'4.4', name:{ko:'이해관계자 협력 방안',en:'Stakeholder collaboration'}},
+    ]},
+    {code:'S-B.5', name:{ko:'전환 계획',en:'Transition Plan'}, guidances:[
+      {sub:'5.1', name:{ko:'자연관련 목표/선언 현황',en:'Nature targets/declarations'}},
+      {sub:'5.2', name:{ko:'GBF 연계성',en:'GBF alignment'}},
+      {sub:'5.3', name:{ko:'이행 로드맵',en:'Implementation roadmap'}},
+    ]},
+  ]},
+  {area:'S-C', name:{ko:'시나리오 분석',en:'Scenario Analysis'}, items:[
+    {code:'S-C.6', name:{ko:'시나리오 분석',en:'Scenario Analysis'}, guidances:[
+      {sub:'6.1', name:{ko:'물리적 리스크 시나리오',en:'Physical risk scenario'}},
+      {sub:'6.2', name:{ko:'전환 리스크 시나리오',en:'Transition risk scenario'}},
+      {sub:'6.3', name:{ko:'시나리오별 재무 영향 분석',en:'Per-scenario financial impact'}},
+      {sub:'6.4', name:{ko:'대응 전략의 복원력 평가',en:'Strategy resilience assessment'}},
+    ]},
+  ]},
+  {area:'S-D', name:{ko:'우선순위 지역',en:'Priority Locations'}, items:[
+    {code:'S-D.7', name:{ko:'우선순위 지역',en:'Priority Locations'}, guidances:[
+      {sub:'7.1', name:{ko:'직접 운영 지역 현황',en:'Direct operation locations'}},
+      {sub:'7.2', name:{ko:'가치사슬 내 중요 지역 식별',en:'Value chain priority locations'}},
+      {sub:'7.3', name:{ko:'생태적 민감 지역 현황',en:'Ecologically sensitive areas'}},
+      {sub:'7.4', name:{ko:'지역별 평가 방법론',en:'Per-location methodology'}},
+      {sub:'7.5', name:{ko:'지역 정보 상세도 수준',en:'Location info granularity'}},
+    ]},
+  ]},
+  {area:'R-Ai', name:{ko:'직접운영 평가',en:'Direct Operations Assessment'}, items:[
+    {code:'R-Ai.1', name:{ko:'식별 프로세스',en:'Identification Process'}, guidances:[
+      {sub:'1.1', name:{ko:'자연관련 이슈 식별 방법론',en:'Issue identification methodology'}},
+      {sub:'1.2', name:{ko:'중대성 평가 기준/가이드라인',en:'Materiality criteria'}},
+      {sub:'1.3', name:{ko:'지역별 특성 고려 수준',en:'Location-specific consideration'}},
+    ]},
+    {code:'R-Ai.2', name:{ko:'평가 절차',en:'Assessment Procedure'}, guidances:[
+      {sub:'2.1', name:{ko:'평가 주기',en:'Assessment frequency'}},
+      {sub:'2.2', name:{ko:'생태적 임계점 고려 여부',en:'Ecological tipping points'}},
+      {sub:'2.3', name:{ko:'규제 변화 고려 방식',en:'Regulatory change consideration'}},
+    ]},
+    {code:'R-Ai.3', name:{ko:'데이터 품질',en:'Data Quality'}, guidances:[
+      {sub:'3.1', name:{ko:'데이터 품질 평가',en:'Data quality assessment'}},
+      {sub:'3.2', name:{ko:'데이터 개선 계획',en:'Data improvement plan'}},
+      {sub:'3.3', name:{ko:'정보 출처 관리',en:'Source management'}},
+    ]},
+  ]},
+  {area:'R-Aii', name:{ko:'가치사슬 평가',en:'Value Chain Assessment'}, items:[
+    {code:'R-Aii.4', name:{ko:'가치사슬 범위',en:'Value Chain Scope'}, guidances:[
+      {sub:'4.1', name:{ko:'가치사슬 정의 및 범위',en:'Value chain definition'}},
+      {sub:'4.2', name:{ko:'평가 요소 선정 기준',en:'Element selection criteria'}},
+      {sub:'4.3', name:{ko:'평가 범위 검토 절차',en:'Scope review procedure'}},
+    ]},
+    {code:'R-Aii.5', name:{ko:'가치사슬 평가',en:'Value Chain Assessment'}, guidances:[
+      {sub:'5.1', name:{ko:'지역별 상세도 수준',en:'Location granularity'}},
+      {sub:'5.2', name:{ko:'데이터 수집 방법',en:'Data collection method'}},
+      {sub:'5.3', name:{ko:'데이터 품질 개선 계획',en:'Data quality improvement'}},
+    ]},
+  ]},
+  {area:'R-B', name:{ko:'관리 프로세스',en:'Management Process'}, items:[
+    {code:'R-B.6', name:{ko:'관리 체계',en:'Management System'}, guidances:[
+      {sub:'6.1', name:{ko:'관리 도구 및 시스템',en:'Tools and systems'}},
+      {sub:'6.2', name:{ko:'데이터 활용 방안',en:'Data utilization'}},
+      {sub:'6.3', name:{ko:'모니터링 체계',en:'Monitoring system'}},
+    ]},
+  ]},
+  {area:'R-C', name:{ko:'전사 리스크 관리 통합',en:'Enterprise Risk Integration'}, items:[
+    {code:'R-C.7', name:{ko:'리스크 통합',en:'Risk Integration'}, guidances:[
+      {sub:'7.1', name:{ko:'전사 리스크 관리체계 통합',en:'ERM integration'}},
+      {sub:'7.2', name:{ko:'보고 및 검토 절차',en:'Reporting & review'}},
+      {sub:'7.3', name:{ko:'개선 피드백 체계',en:'Improvement feedback'}},
+    ]},
+  ]},
+  {area:'M-A', name:{ko:'리스크/기회 평가 지표',en:'Risk/Opportunity Metrics'}, items:[
+    {code:'M-A.1', name:{ko:'핵심 글로벌 지표',en:'Core Global Metrics'}, guidances:[
+      {sub:'1.1', name:{ko:'조직 수준 핵심지표 관리',en:'Org-level core metrics'}},
+      {sub:'1.2', name:{ko:'섹터별 핵심지표 관리',en:'Sector-specific metrics'}},
+    ]},
+    {code:'M-A.2', name:{ko:'재무정보 연계',en:'Financial Linkage'}, guidances:[
+      {sub:'2.1', name:{ko:'재무영향 측정 지표',en:'Financial impact metrics'}},
+      {sub:'2.2', name:{ko:'전략/정책 모니터링 지표',en:'Strategy/policy monitoring'}},
+    ]},
+    {code:'M-A.3', name:{ko:'지표 관리',en:'Metrics Management'}, guidances:[
+      {sub:'3.1', name:{ko:'방법론 및 가정 관리',en:'Methodology/assumptions'}},
+      {sub:'3.2', name:{ko:'미보고 지표 사유 관리',en:'Unreported metric rationale'}},
+      {sub:'3.3', name:{ko:'리스크 통합성 지표',en:'Risk integration metric'}},
+    ]},
+  ]},
+  {area:'M-B', name:{ko:'의존도/영향 평가 지표',en:'Dependency/Impact Metrics'}, items:[
+    {code:'M-B.4', name:{ko:'의존도 측정',en:'Dependency Measurement'}, guidances:[
+      {sub:'4.1', name:{ko:'핵심 의존도 지표 관리',en:'Core dependency metrics'}},
+      {sub:'4.2', name:{ko:'섹터별 의존도 지표',en:'Sector dependency metrics'}},
+      {sub:'4.3', name:{ko:'지리적 특성 기반 지표',en:'Geographic metrics'}},
+    ]},
+    {code:'M-B.5', name:{ko:'영향 측정',en:'Impact Measurement'}, guidances:[
+      {sub:'5.1', name:{ko:'영향 동인별 지표',en:'Impact driver metrics'}},
+      {sub:'5.2', name:{ko:'생태계 변화 지표',en:'Ecosystem change metrics'}},
+      {sub:'5.3', name:{ko:'생태계 서비스 지표',en:'Ecosystem service metrics'}},
+      {sub:'5.4', name:{ko:'누적 영향 지표',en:'Cumulative impact metrics'}},
+    ]},
+  ]},
+  {area:'M-C', name:{ko:'목표 설정 및 모니터링',en:'Targets & Monitoring'}, items:[
+    {code:'M-C.6', name:{ko:'목표 설정',en:'Target Setting'}, guidances:[
+      {sub:'6.1', name:{ko:'목표 설정 방법론',en:'Target methodology'}},
+      {sub:'6.2', name:{ko:'기준연도 및 목표치',en:'Baseline year/target value'}},
+      {sub:'6.3', name:{ko:'달성 기한 설정',en:'Target deadline'}},
+      {sub:'6.4', name:{ko:'목표의 과학적 기반 지표',en:'Science-based target'}},
+    ]},
+    {code:'M-C.7', name:{ko:'성과 관리',en:'Performance Mgmt'}, guidances:[
+      {sub:'7.1', name:{ko:'진행상황 모니터링',en:'Progress monitoring'}},
+      {sub:'7.2', name:{ko:'목표 조정 프로세스',en:'Target adjustment process'}},
+    ]},
+    {code:'M-C.8', name:{ko:'글로벌 연계',en:'Global Alignment'}, guidances:[
+      {sub:'8.1', name:{ko:'GBF 목표 연계성',en:'GBF target alignment'}},
+      {sub:'8.2', name:{ko:'기타 국제기준 연계',en:'Other international standards'}},
+      {sub:'8.3', name:{ko:'지속 가능성 기여 지표',en:'Sustainability contribution'}},
+    ]},
+  ]},
+];
+
+/* ============== 상태 ============== */
+const guidRes = {};   // id → 진단결과
+let pdfDoc = null, pdfPage = 1, pdfPages = 1, pdfText = '', pageTexts = [];
+let lang = 'ko';
+let selectedId = null;
+
+/* ============== 유틸 ============== */
+function $(s){return document.querySelector(s)}
+function log(m){const el=$('#log');el.textContent+='['+new Date().toLocaleTimeString()+'] '+m+'\n';el.scrollTop=el.scrollHeight}
+function L(o){return typeof o==='object'?o[lang]:o}
+function allGuidances(){
+  const out=[];
+  SCHEMA.forEach(a=>a.items.forEach(i=>i.guidances.forEach(g=>{
+    out.push({id:`${i.code}__${g.sub}`, area:a.area, areaName:a.name, item:i.code, itemName:i.name, sub:g.sub, name:g.name});
+  })));
+  return out;
+}
+const ALL = allGuidances();
+
+// id 정규화: Claude가 언더바 1개로 반환해도 흡수
+function normalizeId(raw){
+  if(!raw) return raw;
+  let s = String(raw).trim();
+  // 항목코드와 지침코드 사이의 단일 _를 __로
+  // 항목코드 끝 패턴: G-A.1, M-C.8, R-Ai.1, R-Aii.5 등 → 끝이 ".숫자"
+  // 그 뒤에 _ 1개나 2개가 오고 지침번호(N.N)
+  s = s.replace(/^([A-Z]+(?:-[A-Za-z()i]+)?\.\d+)_+(\d+\.\d+)$/, '$1__$2');
+  return s;
+}
+
+/* ============== 언어 전환 ============== */
+$('#lang').addEventListener('change', e=>{
+  lang = e.target.value;
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-ko]').forEach(el=>{
+    el.textContent = el.getAttribute('data-'+lang);
+  });
+  renderTree();
+  if(selectedId) renderDetail(selectedId);
+});
+
+/* ============== 트리 렌더링 ============== */
+function renderTree(){
+  const tree = $('#tree');
+  tree.innerHTML = '';
+  SCHEMA.forEach(area=>{
+    const a = document.createElement('div'); a.className='area open';
+    const total = area.items.reduce((s,i)=>s+i.guidances.length,0);
+    const met = area.items.reduce((s,i)=>s+i.guidances.filter(g=>guidRes[`${i.code}__${g.sub}`]?.status==='met').length,0);
+    a.innerHTML = `<div class="area-h"><span>${area.area}. ${L(area.name)}</span><span>${met}/${total}</span></div><div class="area-b"></div>`;
+    a.querySelector('.area-h').onclick = ()=>a.classList.toggle('open');
+    const b = a.querySelector('.area-b');
+    area.items.forEach(item=>{
+      const it = document.createElement('div'); it.className='item';
+      it.innerHTML = `<div class="item-name">${item.code} · ${L(item.name)}</div>`;
+      item.guidances.forEach(g=>{
+        const id = `${item.code}__${g.sub}`;
+        const r = guidRes[id];
+        const status = r?.status || 'none';
+        const gd = document.createElement('div');
+        gd.className = 'guid' + (selectedId===id?' sel':'');
+        gd.innerHTML = `<span class="dot ${status}"></span><span class="gname">${g.sub} ${L(g.name)}</span>`;
+        gd.onclick = ()=>{ selectedId=id; renderTree(); renderDetail(id); if(r?.page) gotoPage(r.page); };
+        it.appendChild(gd);
+      });
+      b.appendChild(it);
+    });
+    tree.appendChild(a);
+  });
+  updateScorecard();
+}
+
+function updateScorecard(){
+  const vals = Object.values(guidRes);
+  $('#scTotal').textContent = ALL.length;
+  $('#scMet').textContent = vals.filter(v=>v.status==='met').length;
+  $('#scPartial').textContent = vals.filter(v=>v.status==='partial').length;
+  $('#scNot').textContent = vals.filter(v=>v.status==='not').length;
+}
+
+/* ============== 상세 패널 ============== */
+function renderDetail(id){
+  const meta = ALL.find(g=>g.id===id);
+  const r = guidRes[id];
+  const d = $('#detail');
+  if(!meta){ d.textContent='?'; return; }
+  const statusLabel = {ko:{met:'충족',partial:'부분충족',not:'미충족',none:'미진단'},
+                       en:{met:'Met',partial:'Partial',not:'Not Met',none:'Not Assessed'}}[lang];
+  const status = r?.status || 'none';
+  d.classList.add('detail');
+  d.innerHTML = `
+    <h3>${meta.id}</h3>
+    <div style="color:var(--muted);font-size:11px;margin-bottom:6px">${meta.area} · ${L(meta.areaName)} › ${L(meta.itemName)}</div>
+    <div><b>${L(meta.name)}</b></div>
+    <span class="badge ${status}">${statusLabel[status]}${r?.score!=null?' · '+r.score:''}</span>
+    ${r ? `
+      ${r.page?`<div class="field"><b>${lang==='ko'?'페이지':'Page'}</b>p.${r.page} <button onclick="gotoPage(${r.page})" style="margin-left:6px">${lang==='ko'?'이동':'Go'}</button></div>`:''}
+      ${r.excerpt?`<div class="field"><b>${lang==='ko'?'원문 발췌':'Excerpt'}</b><div class="excerpt">"${r.excerpt}"</div></div>`:''}
+      ${r.evidence?`<div class="field"><b>${lang==='ko'?'판정 근거':'Evidence'}</b>${r.evidence}</div>`:''}
+      ${r.notReason?`<div class="field"><b>${lang==='ko'?'미충족 사유':'Reason'}</b>${r.notReason}</div>`:''}
+      ${r.rec?`<div class="field"><b>${lang==='ko'?'개선 권고':'Recommendation'}</b>${r.rec}</div>`:''}
+    ` : `<div style="color:var(--muted);margin-top:10px">${lang==='ko'?'아직 진단되지 않았습니다':'Not yet assessed'}</div>`}
+  `;
+}
+
+/* ============== PDF 처리 ============== */
+const dz = $('#dropzone'), fi = $('#fileinput');
+dz.onclick = ()=>fi.click();
+['dragover','dragleave','drop'].forEach(ev=>dz.addEventListener(ev, e=>{
+  e.preventDefault();
+  if(ev==='dragover') dz.classList.add('hover');
+  else dz.classList.remove('hover');
+  if(ev==='drop' && e.dataTransfer.files[0]) loadPdf(e.dataTransfer.files[0]);
+}));
+fi.onchange = e=>{ if(e.target.files[0]) loadPdf(e.target.files[0]); };
+
+async function loadPdf(file){
+  log(`PDF 로드: ${file.name} (${(file.size/1024).toFixed(0)}KB)`);
+  const buf = await file.arrayBuffer();
+  pdfDoc = await pdfjsLib.getDocument({data:buf}).promise;
+  pdfPages = pdfDoc.numPages;
+  $('#pgTotal').textContent = pdfPages;
+  pageTexts = [];
+  let allText = '';
+  for(let i=1;i<=pdfPages;i++){
+    const page = await pdfDoc.getPage(i);
+    const tc = await page.getTextContent({normalizeWhitespace:true});
+    const t = tc.items.map(it=>it.str).join(' ');
+    pageTexts.push(t);
+    allText += `\n===p${i}===\n${t}`;
+  }
+  pdfText = allText;
+  log(`텍스트 추출: ${allText.length.toLocaleString()}자`);
+  if(allText.length < 500){
+    alert(lang==='ko'?'⚠️ 텍스트 추출 실패 — 스캔본 PDF인 경우 OCR 후 재업로드하세요':'⚠️ Text extraction failed — OCR required for scanned PDFs');
+  }
+  $('#pdfStatus').textContent = file.name;
+  $('#diagBtn').disabled = false;
+  pdfPage = 1;
+  renderPdfPage();
+}
+
+async function renderPdfPage(){
+  if(!pdfDoc) return;
+  const area = $('#pdfcanvasarea');
+  area.innerHTML = '';
+  const page = await pdfDoc.getPage(pdfPage);
+  const vp = page.getViewport({scale:1.3});
+  const canvas = document.createElement('canvas');
+  canvas.width = vp.width; canvas.height = vp.height;
+  area.appendChild(canvas);
+  await page.render({canvasContext:canvas.getContext('2d'), viewport:vp}).promise;
+  $('#pgNum').textContent = pdfPage;
+}
+function gotoPage(n){ if(!pdfDoc) return; pdfPage=Math.max(1,Math.min(pdfPages,n)); renderPdfPage(); }
+$('#prevPg').onclick = ()=>gotoPage(pdfPage-1);
+$('#nextPg').onclick = ()=>gotoPage(pdfPage+1);
+
+/* ============== 진단 (Claude API) ============== */
+const BATCHES = [
+  {label:'G-A + G-B', keys:['G-A','G-B']},
+  {label:'G-C + S-A + S-B', keys:['G-C','S-A','S-B']},
+  {label:'S-C + S-D + R', keys:['S-C','S-D','R-Ai','R-Aii','R-B','R-C']},
+  {label:'M', keys:['M-A','M-B','M-C']},
+];
+
+function buildSystemPrompt(industry){
+  return `당신은 TNFD 전문 ESG 컨설턴트입니다. 산업: ${industry||'일반'}
+
+## 판정 기준 (엄격하게 준수)
+
+### met (충족) — 다음 중 하나 이상 해당:
+- 해당 지침 요건을 명시적으로 기술 (문단, 표, 도식, 각주 등 형식 무관)
+- 수치/정량 데이터 없어도 되나, 해당 주제를 다루고 있음이 명확
+- 조직 정책, 프로세스, 시스템 존재를 공시
+
+### partial (부분충족) — 다음 중 하나 이상 해당:
+- 관련 주제를 언급하나 요건의 50% 미만만 충족
+- 매우 일반적이고 추상적인 서술만 존재
+- 계획만 있고 실제 이행 내용 없음
+
+### not (미충족) — 다음에만 해당:
+- 보고서 전체에서 해당 지침 관련 내용을 찾을 수 없음
+- 완전히 다른 주제의 내용만 존재
+
+## 판단 순서
+1. 보고서에서 해당 지침 관련 섹션을 먼저 탐색
+2. 관련 문장이 1개라도 있으면 최소 "partial"
+3. "not"은 마지막 수단으로만 사용
+
+## excerpt 규칙
+- 반드시 보고서 텍스트에서 그대로 복사 (paraphrase 금지)
+- 최소 15자, 최대 100자
+- 문장 중간에서 자르지 말 것
+- 해당 내용이 없으면 빈 문자열 ""
+
+## id 형식 (절대 준수)
+항목코드__지침코드 (언더바 정확히 2개)
+예: G-A.1__1.1, M-C.8__8.3
+
+## 응답 형식 (순수 JSON, 다른 텍스트 금지)
+{"results":[{
+  "id":"G-A.1__1.1",
+  "status":"met",
+  "score":85,
+  "page":6,
+  "excerpt":"원문 그대로 복사한 문장",
+  "evidence":"왜 이렇게 판정했는지 근거",
+  "rec":"개선 권고 (met이면 빈 문자열)",
+  "notReason":"미충족 사유 (not인 경우만)"
+}]}`;
+}
+
+function buildUserPrompt(targets, docText){
+  const lines = targets.map(g=>`[${g.id}] ${g.area} > ${L(g.itemName)} > ${g.sub} ${L(g.name)}`).join('\n');
+  const text = docText.slice(0, 75000);
+  return `다음은 기업의 TNFD 보고서입니다:\n${text}\n\n========================================\n위 보고서를 꼼꼼히 읽고 아래 TNFD 세부 지침을 진단하세요.\n관련 내용이 조금이라도 있으면 반드시 "met" 또는 "partial"로 판정하세요.\n\n${lines}\n\n반드시 위 ${targets.length}개 지침 전부의 결과를 JSON으로 반환하세요.`;
+}
+
+async function callClaude(apiKey, system, user, maxTokens){
+  const res = await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'content-type':'application/json',
+      'x-api-key':apiKey,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body: JSON.stringify({
+      model:'claude-sonnet-4-5',
+      max_tokens: maxTokens,
+      system, messages:[{role:'user',content:user}]
+    })
+  });
+  if(!res.ok) throw new Error('API '+res.status+': '+(await res.text()));
+  const j = await res.json();
+  return j.content[0].text;
+}
+
+function parseJsonLoose(t){
+  // 코드펜스 제거
+  t = t.replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'');
+  // 첫 { 부터 마지막 } 까지
+  const a = t.indexOf('{'), b = t.lastIndexOf('}');
+  if(a>=0 && b>a) t = t.slice(a, b+1);
+  return JSON.parse(t);
+}
+
+$('#diagBtn').onclick = async ()=>{
+  const apiKey = $('#apikey').value.trim();
+  if(!apiKey){ alert('API 키를 입력하세요'); return; }
+  if(!pdfText){ alert('PDF를 먼저 업로드하세요'); return; }
+  const industry = $('#industry').value.trim();
+  $('#diagBtn').disabled = true;
+  $('#progressBar').style.display='block';
+  const bar = $('#progressBar').firstElementChild;
+
+  for(let bi=0; bi<BATCHES.length; bi++){
+    const batch = BATCHES[bi];
+    const targets = ALL.filter(g=>batch.keys.includes(g.area));
+    log(`배치 ${bi+1}/${BATCHES.length}: ${batch.label} (${targets.length}개)`);
+    bar.style.width = ((bi/BATCHES.length)*100)+'%';
+    try{
+      const text = await callClaude(
+        apiKey,
+        buildSystemPrompt(industry),
+        buildUserPrompt(targets, pdfText),
+        8000
+      );
+      const parsed = parseJsonLoose(text);
+      let n = 0;
+      (parsed.results||[]).forEach(r=>{
+        const id = normalizeId(r.id);
+        guidRes[id] = {...r, id};
+        n++;
+      });
+      log(`  → ${n}개 수신 (요청 ${targets.length})`);
+      renderTree();
+    }catch(e){
+      log(`  ✗ 오류: ${e.message}`);
+      alert('진단 오류: '+e.message);
+    }
+  }
+  bar.style.width='100%';
+  $('#diagBtn').disabled = false;
+  $('#exportBtn').disabled = false;
+  log('진단 완료');
+};
+
+/* ============== 엑셀 내보내기 ============== */
+$('#exportBtn').onclick = ()=>{
+  const rows = ALL.map(g=>{
+    const r = guidRes[g.id] || {};
+    return {
+      ID: g.id, 영역: g.area, 항목코드: g.item, 항목명: L(g.itemName),
+      지침코드: g.sub, 지침명: L(g.name),
+      판정: r.status||'', 점수: r.score||'', 페이지: r.page||'',
+      원문발췌: r.excerpt||'', 판정근거: r.evidence||'',
+      미충족사유: r.notReason||'', 개선권고: r.rec||''
+    };
+  });
+  const summary = [
+    {구분:'전체', 개수:ALL.length},
+    {구분:'충족(met)', 개수:Object.values(guidRes).filter(v=>v.status==='met').length},
+    {구분:'부분(partial)', 개수:Object.values(guidRes).filter(v=>v.status==='partial').length},
+    {구분:'미충족(not)', 개수:Object.values(guidRes).filter(v=>v.status==='not').length},
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summary), 'Summary');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Diagnosis');
+  XLSX.writeFile(wb, `TNFD_diagnosis_${new Date().toISOString().slice(0,10)}.xlsx`);
+};
+
+/* ============== 초기 렌더 ============== */
+log('총 지침: '+ALL.length+'개');
+renderTree();
+</script>
+</body>
+</html>
